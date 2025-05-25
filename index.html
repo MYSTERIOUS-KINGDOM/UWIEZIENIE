@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="UTF-8">
     <title>WebAR - Czarodziej</title>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
+
+    <!-- biblioteki MindAR i A-Frame -->
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.2.0/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/aframe/mindar-image-aframe.prod.js"></script>
+
     <link rel="stylesheet" href="style.css">
   </head>
+
   <body>
     <div id="loading">Ładowanie...</div>
 
-    <a-scene mindar-image="imageTargetSrc: targets.mind; autoStart: true;" 
-             embedded 
-             color-space="sRGB"
-             renderer="colorManagement: true, physicallyCorrectLights"
-             vr-mode-ui="enabled: false"
-             device-orientation-permission-ui="enabled: true">
-      
+    <a-scene
+      mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+      embedded
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: true">
+
       <a-assets>
-        <img id="czarodziej" src="assets/czarodziej.png">
+        <img id="czarodziej" src="assets/czarodziej.png" />
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
