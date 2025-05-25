@@ -1,82 +1,89 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <title>WebAR – Czarodziej (tylna kamera)</title>
+  <meta charset="utf-8" />
+  <title>WebAR – pojawia się tylko na markerze</title>
 
-  <!-- A-Frame & MindAR -->
+  <!-- A-Frame + MindAR -->
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
 
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    body{margin:0;overflow:hidden}
+    #loading{position:fixed;inset:0;display:flex;align-items:center;
+             justify-content:center;background:#000;color:#fff;z-index:9}
+    a-scene{width:100vw;height:100vh}
+  </style>
 </head>
 <body>
-  <div id="loading">🔍 Przygotowywanie kamery...</div>
+  <div id="loading">🔍 Włączanie tylnej kamery…</div>
 
-  <!-- Scena zostanie pokazana po pozytywnych testach -->
-  <div id="scene-container" style="display:none;">
-    <a-scene
-      mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
-      embedded
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: true">
+  <a-scene id="scene"
+           mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+           embedded color-space="sRGB"
+           renderer="colorManagement: true; physicallyCorrectLights"
+           vr-mode-ui="enabled:false"
+           device-orientation-permission-ui="enabled:true">
 
-      <a-assets>
-        <img id="czarodziej" src="assets/czarodziej.png" />
-      </a-assets>
+    <a-assets>
+      <img id="czarodziej" src="assets/czarodziej.png">
+    </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
 
-      <!-- obiekt widoczny tylko przy wykryciu markera -->
-      <a-entity mindar-image-target="targetIndex: 0" id="target" visible="false">
-        <a-entity geometry="primitive: plane; width: 1; height: 0.75"
-                  material="shader: flat; src: #czarodziej">
-        </a-entity>
-      </a-entity>
-    </a-scene>
-  </div>
+    <!-- Pusta kotwica – bez potomków = nie ma co wyświetlić -->
+    <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
+  </a-scene>
 
   <script>
-    // test: tylny aparat + istnienie targets.mind
-    async function init() {
-      const loading = document.getElementById("loading");
-      const scene   = document.getElementById("scene-container");
+    // najpierw sprawdzamy plik + tylną kamerę
+    (async()=>{
 
-      try {
-        // sprawdź targets.mind
-        const res = await fetch("targets.mind");
-        if (!res.ok) throw new Error("Nie znaleziono pliku targets.mind");
+      /* 1. sprawdź targets.mind */
+      const ok = await fetch('targets.mind').then(r=>r.ok);
+      if (!ok){return document.getElementById('loading').innerText='❌ Brak targets.mind';}
 
-        // poproś explicite o tylną kamerę
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }
+      /* 2. poproś o tylną kamerę – tylko by uzyskać uprawnienie,
+            natychmiast zwalniamy strumień                */
+      try{
+        const s = await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{ideal:'environment'}}
         });
-        // zwolnij – MindAR pobierze strumień sam
-        stream.getTracks().forEach(t => t.stop());
-
-        // gotowe → pokazujemy scenę
-        loading.style.display = "none";
-        scene.style.display   = "block";
-      } catch (e) {
-        loading.innerText = "❌ Błąd: " + e.message;
+        s.getTracks().forEach(t=>t.stop());
+      }catch(e){
+        return document.getElementById('loading').innerText='❌ Kamera zablokowana';
       }
 
-      // logika widoczności obiektu
-      document.addEventListener("DOMContentLoaded", () => {
-        const sceneEl  = document.querySelector("a-scene");
-        const targetEl = document.querySelector("#target");
+      /* 3. ukryj ekran ładowania */
+      document.getElementById('loading').style.display='none';
 
-        if (!sceneEl || !targetEl) return;
+      /* 4. po załadowaniu sceny dodajemy grafikę dopiero przy targetFound */
+      const anchor   = document.getElementById('anchor');
+      const sceneEl  = document.getElementById('scene');
 
-        sceneEl.addEventListener("targetFound", ()  => targetEl.setAttribute("visible", "true"));
-        sceneEl.addEventListener("targetLost",  ()  => targetEl.setAttribute("visible", "false"));
+      let spawned=false;
+
+      sceneEl.addEventListener('targetFound',()=>{
+        if(spawned) return;
+
+        const plane=document.createElement('a-plane');
+        plane.setAttribute('src','#czarodziej');
+        plane.setAttribute('width','1');       // skala względem markera
+        plane.setAttribute('height','0.75');
+        plane.setAttribute('rotation','0 0 0');
+        plane.setAttribute('position','0 0 0');
+        plane.setAttribute('material','shader:flat;transparent:true');
+
+        anchor.appendChild(plane);
+        spawned=true;
       });
-    }
 
-    init();
+      sceneEl.addEventListener('targetLost',()=>{
+        // opcjonalnie możesz usunąć obiekt, aby tworzył się za każdym razem
+        //   anchor.innerHTML=''; spawned=false;
+      });
+    })();
   </script>
 </body>
 </html>
