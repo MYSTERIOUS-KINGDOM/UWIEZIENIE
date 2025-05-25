@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
   <head>
     <meta charset="UTF-8">
-    <title>WebAR - Czarodziej</title>
+    <title>WebAR – Czarodziej</title>
 
-    <!-- biblioteki MindAR i A-Frame -->
-    <script src="https://cdn.jsdelivr.net/npm/aframe@1.2.0/dist/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/aframe/mindar-image-aframe.prod.js"></script>
+    <!-- Działające biblioteki MindAR -->
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
 
     <link rel="stylesheet" href="style.css">
   </head>
@@ -15,14 +15,31 @@
   <body>
     <div id="loading">Ładowanie...</div>
 
+    <!-- Wymuszone pytanie o kamerę z komunikatem błędu -->
+    <script>
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(() => {
+            console.log("✅ Kamera działa");
+            document.getElementById("loading").style.display = "none";
+          })
+          .catch(err => {
+            alert("🚫 Błąd dostępu do kamery: " + err.name + "\nSprawdź, czy zezwoliłeś przeglądarce na użycie kamery.");
+          });
+      } else {
+        alert("❌ Twoja przeglądarka nie obsługuje kamery.");
+      }
+    </script>
+
+    <!-- Główna scena MindAR -->
     <a-scene
       mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
       embedded
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: true">
-
+      device-orientation-permission-ui="enabled: true"
+    >
       <a-assets>
         <img id="czarodziej" src="assets/czarodziej.png" />
       </a-assets>
