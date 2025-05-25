@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <title>WebAR – Czarodziej tylko na znaczniku</title>
+  <title>WebAR – Czarodziej (tylna kamera)</title>
 
-  <!-- A-Frame i MindAR -->
+  <!-- A-Frame & MindAR -->
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
@@ -13,9 +12,10 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="loading">🔍 Włączanie kamery...</div>
+  <div id="loading">🔍 Przygotowywanie kamery...</div>
 
-  <div id="scene-container" style="display: none;">
+  <!-- Scena zostanie pokazana po pozytywnych testach -->
+  <div id="scene-container" style="display:none;">
     <a-scene
       mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
       embedded
@@ -28,54 +28,55 @@
         <img id="czarodziej" src="assets/czarodziej.png" />
       </a-assets>
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
 
+      <!-- obiekt widoczny tylko przy wykryciu markera -->
       <a-entity mindar-image-target="targetIndex: 0" id="target" visible="false">
-        <a-entity 
-          geometry="primitive: plane; height: 0.75; width: 1"
-          material="shader: flat; src: #czarodziej"
-          position="0 0 0"
-          rotation="0 0 0"
-          scale="1 1 1">
+        <a-entity geometry="primitive: plane; width: 1; height: 0.75"
+                  material="shader: flat; src: #czarodziej">
         </a-entity>
       </a-entity>
     </a-scene>
   </div>
 
   <script>
-    async function startApp() {
+    // test: tylny aparat + istnienie targets.mind
+    async function init() {
       const loading = document.getElementById("loading");
-      const scene = document.getElementById("scene-container");
+      const scene   = document.getElementById("scene-container");
 
       try {
+        // sprawdź targets.mind
         const res = await fetch("targets.mind");
-        if (!res.ok) throw new Error("Nie znaleziono targets.mind");
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        if (!res.ok) throw new Error("Nie znaleziono pliku targets.mind");
+
+        // poproś explicite o tylną kamerę
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } }
+        });
+        // zwolnij – MindAR pobierze strumień sam
+        stream.getTracks().forEach(t => t.stop());
+
+        // gotowe → pokazujemy scenę
         loading.style.display = "none";
-        scene.style.display = "block";
+        scene.style.display   = "block";
       } catch (e) {
         loading.innerText = "❌ Błąd: " + e.message;
       }
 
+      // logika widoczności obiektu
       document.addEventListener("DOMContentLoaded", () => {
-        const sceneEl = document.querySelector("a-scene");
+        const sceneEl  = document.querySelector("a-scene");
         const targetEl = document.querySelector("#target");
 
         if (!sceneEl || !targetEl) return;
 
-        sceneEl.addEventListener("targetFound", () => {
-          console.log("✅ Znacznik wykryty");
-          targetEl.setAttribute("visible", "true");
-        });
-
-        sceneEl.addEventListener("targetLost", () => {
-          console.log("⛔ Znacznik utracony");
-          targetEl.setAttribute("visible", "false");
-        });
+        sceneEl.addEventListener("targetFound", ()  => targetEl.setAttribute("visible", "true"));
+        sceneEl.addEventListener("targetLost",  ()  => targetEl.setAttribute("visible", "false"));
       });
     }
 
-    startApp();
+    init();
   </script>
 </body>
 </html>
