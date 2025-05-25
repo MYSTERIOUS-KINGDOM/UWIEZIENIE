@@ -1,81 +1,8 @@
-
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8" />
-  <title>WebAR – Czarodziej tylko na znaczniku</title>
-
-  <!-- A-Frame i MindAR -->
-  <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
-
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div id="loading">🔍 Włączanie kamery...</div>
-
-  <div id="scene-container" style="display: none;">
-    <a-scene
-      mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
-      embedded
-      color-space="sRGB"
-      renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
-      device-orientation-permission-ui="enabled: true">
-
-      <a-assets>
-        <img id="czarodziej" src="assets/czarodziej.png" />
-      </a-assets>
-
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity mindar-image-target="targetIndex: 0" id="target" visible="false">
-        <a-entity 
-          geometry="primitive: plane; height: 0.75; width: 1"
-          material="shader: flat; src: #czarodziej"
-          position="0 0 0"
-          rotation="0 0 0"
-          scale="1 1 1">
-        </a-entity>
-      </a-entity>
-    </a-scene>
-  </div>
-
-  <script>
-    async function startApp() {
-      const loading = document.getElementById("loading");
-      const scene = document.getElementById("scene-container");
-
-      try {
-        const res = await fetch("targets.mind");
-        if (!res.ok) throw new Error("Nie znaleziono targets.mind");
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        loading.style.display = "none";
-        scene.style.display = "block";
-      } catch (e) {
-        loading.innerText = "❌ Błąd: " + e.message;
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        const sceneEl = document.querySelector("a-scene");
-        const targetEl = document.querySelector("#target");
-
-        if (!sceneEl || !targetEl) return;
-
-        sceneEl.addEventListener("targetFound", () => {
-          console.log("✅ Znacznik wykryty");
-          targetEl.setAttribute("visible", "true");
-        });
-
-        sceneEl.addEventListener("targetLost", () => {
-          console.log("⛔ Znacznik utracony");
-          targetEl.setAttribute("visible", "false");
-        });
-      });
-    }
-
-    startApp();
-  </script>
-</body>
-</html>
+<!DOCTYPE html><html><body>
+<video id="cam" autoplay playsinline style="width:100vw;height:100vh;"></video>
+<script>
+navigator.mediaDevices.getUserMedia({video:true})
+  .then(s=>document.getElementById('cam').srcObject=s)
+  .catch(e=>alert("Brak kamery: "+e.name));
+</script>
+</body></html>
