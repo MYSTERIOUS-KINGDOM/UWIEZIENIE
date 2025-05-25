@@ -1,8 +1,0 @@
-<!DOCTYPE html><html><body>
-<video id="cam" autoplay playsinline style="width:100vw;height:100vh;"></video>
-<script>
-navigator.mediaDevices.getUserMedia({video:true})
-  .then(s=>document.getElementById('cam').srcObject=s)
-  .catch(e=>alert("Brak kamery: "+e.name));
-</script>
-</body></html>
