@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebAR – Czarodziej</title>
+
+    <!-- Biblioteki MindAR z CDN -->
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="loading">Ładowanie...</div>
+
+    <script>
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(() => {
+            console.log("✅ Kamera dostępna");
+            document.getElementById("loading").style.display = "none";
+          })
+          .catch(err => {
+            alert("❌ Brak dostępu do kamery: " + err.name);
+          });
+      } else {
+        alert("❌ Twoja przeglądarka nie obsługuje kamery.");
+      }
+    </script>
+
+    <a-scene
+      mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+      embedded
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: true"
+    >
+      <a-assets>
+        <img id="czarodziej" src="assets/czarodziej.png" />
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-image src="#czarodziej" position="0 0 0" height="1" width="1"></a-image>
+      </a-entity>
+    </a-scene>
+  </body>
+</html>
