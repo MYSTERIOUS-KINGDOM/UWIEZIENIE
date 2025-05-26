@@ -1,78 +1,86 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <title>WebAR – czarodziej na markerze</title>
+  <meta charset="utf-8">
+  <title>WebAR – precyzyjna nakładka</title>
 
-  <!-- LOKALNE biblioteki -->
-  <script src="libs/aframe-v1.2.0.min.js"></script>        <!-- A-Frame 1.2.0 -->
-  <script src="libs/mindar-image.prod.js"></script>        <!-- MindAR core -->
-  <script src="libs/mindar-image-aframe.prod.js"></script> <!-- Bridge A-Frame ↔ MindAR -->
+  <!-- lokalne biblioteki -->
+  <script src="libs/aframe-v1.2.0.min.js"></script>
+  <script src="libs/mindar-image.prod.js"></script>
+  <script src="libs/mindar-image-aframe.prod.js"></script>
 
   <style>
     body { margin:0; overflow:hidden; font-family:system-ui,Arial }
-    #msg { position:fixed; inset:0;
-           display:flex; align-items:center; justify-content:center;
-           background:#000; color:#fff; font-size:18px; text-align:center; z-index:9 }
+    #msg  { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+            background:#000; color:#fff; font-size:18px; text-align:center; z-index:9 }
     a-scene { width:100vw; height:100vh }
   </style>
 </head>
 <body>
-  <div id="msg">🔍 Ładowanie…</div>
+<div id="msg">🔍 Ładowanie…</div>
 
-  <a-scene id="scene" embedded
-           mindar-image="imageTargetSrc:targets.mind; autoStart:true;"
-           vr-mode-ui="enabled:false"
-           device-orientation-permission-ui="enabled:true">
+<a-scene id="scene" embedded
+         mindar-image="imageTargetSrc:targets.mind; autoStart:true;"
+         vr-mode-ui="enabled:false"
+         device-orientation-permission-ui="enabled:true">
 
-    <a-assets>
-      <img id="overlay" src="assets/czarodziej.png">
-    </a-assets>
+  <a-assets>
+    <!-- PNG pojawi się na markerze -->
+    <img id="overlay" src="assets/czarodziej.png">
+  </a-assets>
 
-    <a-camera look-controls="enabled:false"></a-camera>
-    <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
-  </a-scene>
+  <a-camera look-controls="enabled:false"></a-camera>
+  <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
+</a-scene>
 
 <script>
 (async () => {
-  const box  = txt => (MSG.textContent = txt, MSG.style.display = 'flex');
-  const hide = ()  => (MSG.style.display = 'none');
-  const MSG  = document.getElementById('msg');
+  const MSG = document.getElementById('msg');
+  const show = t => (MSG.textContent=t, MSG.style.display='flex');
+  const hide = () =>  MSG.style.display='none';
 
-  /* 1️⃣  biblioteki wczytane? */
-  if (typeof AFRAME !== 'object')           { box('❌ A-Frame niezaładowany'); return; }
-  if (typeof window.MINDAR === 'undefined') { box('❌ MindAR niezaładowany');  return; }
+  /* 1. weryfikacja bibliotek */
+  if (typeof AFRAME!=='object')           { show('❌ A-Frame niezaładowany'); return; }
+  if (typeof window.MINDAR==='undefined'){ show('❌ MindAR niezaładowany');  return; }
 
-  /* 2️⃣  targets.mind istnieje i ma dane */
-  const ok = await fetch('targets.mind', {cache:'no-store'})
-                    .then(r => r.ok && r.headers.get('content-length') !== '0')
-                    .catch(() => false);
-  if (!ok) { box('❌ Brak lub pusty targets.mind'); return; }
+  /* 2. czy jest plik targets.mind (>0 B) */
+  const ok = await fetch('targets.mind',{cache:'no-store'})
+                    .then(r=>r.ok && r.headers.get('content-length')!=='0')
+                    .catch(()=>false);
+  if (!ok){ show('❌ Brak / pusty targets.mind'); return; }
 
-  /* 3️⃣  zgoda na tylną kamerę */
-  try {
+  /* 3. poproś o tylną kamerę (permission) */
+  try{
     const s = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal:'environment' } }
+      video:{ facingMode:{ ideal:'environment' } }
     });
-    s.getTracks().forEach(t => t.stop());   // zwalniamy – MindAR przejmie później
-  } catch (e) {
-    box('❌ Kamera zablokowana'); return;
-  }
+    s.getTracks().forEach(t=>t.stop());
+  }catch(e){ show('❌ Kamera zablokowana'); return; }
 
-  /* 4️⃣  uruchamiamy scenę */
-  hide();
-  const anchor = document.getElementById('anchor');
+  hide();                                 /* wszystko OK */
+
   const scene  = document.getElementById('scene');
+  const anchor = document.getElementById('anchor');
+  const img    = document.getElementById('overlay');
+
+  /* 4. czekaj aż obrazek się załaduje, żeby znać naturalny rozmiar */
+  await new Promise(res=>{
+    if (img.complete) res(); else img.onload = res;
+  });
+
+  const aspect = img.naturalHeight / img.naturalWidth;   // np. 0.75
+  const yOffset = 0;   // ← jeśli PNG ma pusty margines u góry/dole, wpisz np. -0.05
 
   scene.addEventListener('targetFound', () => {
-    if (!anchor.children.length) {
-      const p = document.createElement('a-plane');
-      p.setAttribute('src',    '#overlay');
-      p.setAttribute('width',  '1');
-      p.setAttribute('height', '0.75');
-      p.setAttribute('material', 'shader:flat;transparent:true');
-      anchor.appendChild(p);
-    }
+    if (anchor.children.length) return;
+
+    const plane = document.createElement('a-plane');
+    plane.setAttribute('src', '#overlay');
+    plane.setAttribute('width',  '1');
+    plane.setAttribute('height', aspect.toString());      // dopasuj wysokość
+    plane.setAttribute('position', `0 ${yOffset} 0`);     // środek markera (ew. korekta Y)
+    plane.setAttribute('material', 'shader:flat;transparent:true');
+    anchor.appendChild(plane);
   });
 
   scene.addEventListener('targetLost', () => anchor.innerHTML = '');
