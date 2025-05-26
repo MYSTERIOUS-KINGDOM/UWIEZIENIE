@@ -1,81 +1,104 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<title>MindAR debug – NIC nie rysuj przed markerem</title>
+<meta charset="utf-8" />
+<title>WebAR – wzmocniony start</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/MindAR-js/aframe/dist/mindar-image-aframe.prod.js"></script>
+<!-- ❶  LOKALNE biblioteki -->
+<script src="libs/aframe-v1.5.0.min.js"></script>
+<script src="libs/mindar-image.prod.js"></script>
+<script src="libs/mindar-image-aframe.prod.js"></script>
 
 <style>
-body{margin:0;overflow:hidden}
-#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-         background:#000;color:#fff;font-size:18px;z-index:9}
-a-scene{width:100vw;height:100vh}
+  body{margin:0;overflow:hidden;font-family:system-ui,Arial}
+  #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+       background:#000;color:#fff;font-size:18px;z-index:9;text-align:center;padding:1rem}
+  a-scene{width:100vw;height:100vh}
 </style>
 </head>
-<body>
-<div id="loading">🔍 Inicjalizacja…</div>
 
-<a-scene id="scene"
-         embedded
-         mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+<body>
+<div id="msg">🔍 Ładowanie bibliotek…</div>
+
+<a-scene id="scene" embedded
          vr-mode-ui="enabled:false"
-         device-orientation-permission-ui="enabled:true">
+         device-orientation-permission-ui="enabled:true"
+         mindar-image="imageTargetSrc:targets.mind;autoStart:true;uiScanning:no">
 
   <a-assets>
-    <img id="tex" src="assets/czarodziej.png">
+    <img id="overlay" src="assets/czarodziej.png">
   </a-assets>
 
   <a-camera look-controls="enabled:false"></a-camera>
-  <!-- pusta kotwica – na start NIC w niej nie ma -->
   <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
 (async()=>{
-  const log = msg => console.log('%c'+msg,'color:lime');
-  const err = msg => console.error('%c'+msg,'color:red');
-  const loading = document.getElementById('loading');
+  const M = document.getElementById('msg');
+  const show = t => (M.textContent=t, M.style.display='flex');
+  const hide = () => (M.style.display='none');
 
-  /* 1. targets.mind? */
-  const ok = await fetch('targets.mind').then(r=>r.ok).catch(()=>false);
-  if(!ok){loading.textContent='❌ brak targets.mind'; return err('404 targets.mind');}
+  /* ❷  Weryfikacja bibliotek ------------------------------ */
+  if(typeof AFRAME!=='object'){ return show('❌ Biblioteka A-Frame nie została załadowana'); }
+  if(typeof window.MINDAR==='undefined'){ return show('❌ Biblioteka MindAR nie została załadowana'); }
 
-  /* 2. tylna kamera – tylko by dostać permission, strumień natychmiast zwalniamy */
+  /* ❸  Czy plik targets.mind istnieje? -------------------- */
   try{
-    const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
-    s.getTracks().forEach(t=>t.stop());
-    log('kamera OK (environment)');
+    const r = await fetch('targets.mind',{cache:'no-store'});
+    if(!r.ok || r.headers.get('content-length')==='0'){
+      return show('❌ Brakuje pliku <targets.mind>\nlub ma rozmiar 0 B');
+    }
   }catch(e){
-    loading.textContent='❌ kamera zablokowana'; err(e); return;
+    return show('❌ Nie można pobrać <targets.mind>\n'+e.message);
   }
 
-  /* 3. chowamy loader, scena gotowa */
-  loading.remove();
+  /* ❹  Dostęp do tylnej kamery ---------------------------- */
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    return show('❌ Twoja przeglądarka nie obsługuje kamery (WebRTC)');
+  }
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' } }
+    });
+    s.getTracks().forEach(t=>t.stop());          // zwolnij – MindAR przejmie później
+  }catch(e){
+    return show('❌ Dostęp do kamery odrzucony'); 
+  }
 
-  const anchor=document.getElementById('anchor');
-  const scene = document.getElementById('scene');
+  hide();                     // wszystkie testy zaliczone – chowamy komunikat
 
-  /* 4. Reagujemy tylko na prawdziwe zdarzenia */
+  /* ❺  Logika pojawiania / ukrywania grafiki -------------- */
+  const scene  = document.getElementById('scene');
+  const anchor = document.getElementById('anchor');
+  let timeout;                // „watch-dog” na brak markera
+
   scene.addEventListener('targetFound',()=>{
-    log('🎯 targetFound');
+    clearTimeout(timeout);
     if(anchor.children.length===0){
-      const p=document.createElement('a-plane');
-      p.setAttribute('src','#tex');
-      p.setAttribute('width','1');
-      p.setAttribute('height','0.75');
-      p.setAttribute('material','shader:flat;transparent:true');
-      anchor.appendChild(p);
-      log('▶️ plane dodany do anchor');
+      const plane = document.createElement('a-plane');
+      plane.setAttribute('src','#overlay');
+      plane.setAttribute('width','1');
+      plane.setAttribute('height','0.75');
+      plane.setAttribute('material','shader:flat;transparent:true');
+      anchor.appendChild(plane);
     }
   });
 
   scene.addEventListener('targetLost',()=>{
-    log('👋 targetLost – usuwam plane');
-    anchor.innerHTML='';
+    anchor.innerHTML='';      // usuń grafikę
+    /* jeśli przez 15 s nie pojawi się marker – pokaż podpowiedź */
+    timeout = setTimeout(()=>{
+      show('🕑 Nie wykryto markera.\nUpewnij się, że kamera widzi obrazek-wizytówkę.');
+    },15000);
   });
+
+  /* start timera przy pierwszym uruchomieniu sceny */
+  timeout = setTimeout(()=>{
+    show('🕑 Trwa skanowanie.\nCzy marker jest dobrze oświetlony i w kadrze?');
+  },15000);
 })();
 </script>
-</body></html>
+</body>
+</html>
