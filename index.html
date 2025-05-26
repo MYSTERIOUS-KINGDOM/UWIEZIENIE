@@ -1,31 +1,87 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <title>WebAR – czarodziej na markerze</title>
+  <meta charset="utf-8">
+  <title>WebAR – nakładka na marker</title>
 
-  <!-- 3 biblioteki z lokalnego katalogu libs/ -->
-  <script src="libs/aframe-v1.5.0.min.js"></script>
+  <!-- 3 biblioteki z /libs/ -->
+  <script src="libs/aframe.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
 
   <style>
-    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
-    #loading{
-      position:fixed;inset:0;
-      display:flex;align-items:center;justify-content:center;
-      background:#000;color:#fff;font-size:18px;z-index:9;text-align:center
-    }
-    a-scene{width:100vw;height:100vh}
+    body { margin:0; overflow:hidden; font-family:system-ui,Arial; }
+    #msg  { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+            background:#000; color:#fff; font-size:18px; text-align:center; z-index:9; }
+    a-scene { width:100vw; height:100vh; }
   </style>
 </head>
 <body>
-  <div id="loading">🔍 Ładowanie…</div>
+  <div id="msg">🔍 Ładowanie…</div>
 
-  <a-scene id="scene"
-           embedded
-           mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+  <a-scene id="scene" embedded
+           mindar-image="imageTargetSrc:targets.mind; autoStart:true;"
            vr-mode-ui="enabled:false"
            device-orientation-permission-ui="enabled:true">
 
-    <
+    <a-assets>
+      <img id="overlay" src="assets/czarodziej.png">
+    </a-assets>
+
+    <a-camera look-controls="enabled:false"></a-camera>
+    <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
+  </a-scene>
+
+<script>
+(async () => {
+  const M  = document.getElementById('msg');
+  const log = t => console.log('%c'+t,'color:lime');
+
+  /* 1️⃣ biblioteki */
+  if (typeof AFRAME !== 'object')         { M.textContent='❌ A-Frame niezaładowany'; return; }
+  if (typeof window.MINDAR === 'undefined'){ M.textContent='❌ MindAR niezaładowany'; return; }
+
+  /* 2️⃣ targets.mind istnieje i ma dane */
+  try {
+    const r = await fetch('targets.mind',{cache:'no-store'});
+    if (!r.ok || r.headers.get('content-length')==='0') {
+      M.textContent='❌ Brak lub pusty targets.mind'; return;
+    }
+  } catch(e){ M.textContent='❌ Nie można pobrać targets.mind'; return; }
+
+  /* 3️⃣ dostęp do tylnej kamery */
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}}
+    });
+    s.getTracks().forEach(t => t.stop());
+  } catch(e){
+    M.textContent='❌ Kamera zablokowana'; return;
+  }
+
+  /* 4️⃣ gotowe – chowamy komunikat */
+  M.style.display='none';
+
+  const scene  = document.getElementById('scene');
+  const anchor = document.getElementById('anchor');
+
+  scene.addEventListener('targetFound', () => {
+    log('🎯 marker znaleziony');
+    if (anchor.children.length === 0) {
+      const p = document.createElement('a-plane');
+      p.setAttribute('src','#overlay');
+      p.setAttribute('width','1');
+      p.setAttribute('height','0.75');
+      p.setAttribute('material','shader:flat;transparent:true');
+      anchor.appendChild(p);
+    }
+  });
+
+  scene.addEventListener('targetLost', () => {
+    log('👋 marker zgubiony');
+    anchor.innerHTML='';
+  });
+})();
+</script>
+</body>
+</html>
