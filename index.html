@@ -1,104 +1,31 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8" />
-<title>WebAR – wzmocniony start</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <title>WebAR – czarodziej na markerze</title>
 
-<!-- ❶  LOKALNE biblioteki -->
-<script src="libs/aframe-v1.5.0.min.js"></script>
-<script src="libs/mindar-image.prod.js"></script>
-<script src="libs/mindar-image-aframe.prod.js"></script>
+  <!-- 3 biblioteki z lokalnego katalogu libs/ -->
+  <script src="libs/aframe-v1.5.0.min.js"></script>
+  <script src="libs/mindar-image.prod.js"></script>
+  <script src="libs/mindar-image-aframe.prod.js"></script>
 
-<style>
-  body{margin:0;overflow:hidden;font-family:system-ui,Arial}
-  #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-       background:#000;color:#fff;font-size:18px;z-index:9;text-align:center;padding:1rem}
-  a-scene{width:100vw;height:100vh}
-</style>
+  <style>
+    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
+    #loading{
+      position:fixed;inset:0;
+      display:flex;align-items:center;justify-content:center;
+      background:#000;color:#fff;font-size:18px;z-index:9;text-align:center
+    }
+    a-scene{width:100vw;height:100vh}
+  </style>
 </head>
-
 <body>
-<div id="msg">🔍 Ładowanie bibliotek…</div>
+  <div id="loading">🔍 Ładowanie…</div>
 
-<a-scene id="scene" embedded
-         vr-mode-ui="enabled:false"
-         device-orientation-permission-ui="enabled:true"
-         mindar-image="imageTargetSrc:targets.mind;autoStart:true;uiScanning:no">
+  <a-scene id="scene"
+           embedded
+           mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
+           vr-mode-ui="enabled:false"
+           device-orientation-permission-ui="enabled:true">
 
-  <a-assets>
-    <img id="overlay" src="assets/czarodziej.png">
-  </a-assets>
-
-  <a-camera look-controls="enabled:false"></a-camera>
-  <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
-</a-scene>
-
-<script>
-(async()=>{
-  const M = document.getElementById('msg');
-  const show = t => (M.textContent=t, M.style.display='flex');
-  const hide = () => (M.style.display='none');
-
-  /* ❷  Weryfikacja bibliotek ------------------------------ */
-  if(typeof AFRAME!=='object'){ return show('❌ Biblioteka A-Frame nie została załadowana'); }
-  if(typeof window.MINDAR==='undefined'){ return show('❌ Biblioteka MindAR nie została załadowana'); }
-
-  /* ❸  Czy plik targets.mind istnieje? -------------------- */
-  try{
-    const r = await fetch('targets.mind',{cache:'no-store'});
-    if(!r.ok || r.headers.get('content-length')==='0'){
-      return show('❌ Brakuje pliku <targets.mind>\nlub ma rozmiar 0 B');
-    }
-  }catch(e){
-    return show('❌ Nie można pobrać <targets.mind>\n'+e.message);
-  }
-
-  /* ❹  Dostęp do tylnej kamery ---------------------------- */
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    return show('❌ Twoja przeglądarka nie obsługuje kamery (WebRTC)');
-  }
-  try{
-    const s = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ ideal:'environment' } }
-    });
-    s.getTracks().forEach(t=>t.stop());          // zwolnij – MindAR przejmie później
-  }catch(e){
-    return show('❌ Dostęp do kamery odrzucony'); 
-  }
-
-  hide();                     // wszystkie testy zaliczone – chowamy komunikat
-
-  /* ❺  Logika pojawiania / ukrywania grafiki -------------- */
-  const scene  = document.getElementById('scene');
-  const anchor = document.getElementById('anchor');
-  let timeout;                // „watch-dog” na brak markera
-
-  scene.addEventListener('targetFound',()=>{
-    clearTimeout(timeout);
-    if(anchor.children.length===0){
-      const plane = document.createElement('a-plane');
-      plane.setAttribute('src','#overlay');
-      plane.setAttribute('width','1');
-      plane.setAttribute('height','0.75');
-      plane.setAttribute('material','shader:flat;transparent:true');
-      anchor.appendChild(plane);
-    }
-  });
-
-  scene.addEventListener('targetLost',()=>{
-    anchor.innerHTML='';      // usuń grafikę
-    /* jeśli przez 15 s nie pojawi się marker – pokaż podpowiedź */
-    timeout = setTimeout(()=>{
-      show('🕑 Nie wykryto markera.\nUpewnij się, że kamera widzi obrazek-wizytówkę.');
-    },15000);
-  });
-
-  /* start timera przy pierwszym uruchomieniu sceny */
-  timeout = setTimeout(()=>{
-    show('🕑 Trwa skanowanie.\nCzy marker jest dobrze oświetlony i w kadrze?');
-  },15000);
-})();
-</script>
-</body>
-</html>
+    <
