@@ -1,107 +1,52 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8">
-  <title>WebAR – wiele markerów</title>
+<!DOCTYPE html><html lang="pl"><head>
+<meta charset="utf-8"><title>WebAR multi-marker</title>
 
-  <!-- lokalne biblioteki -->
-  <script src="libs/aframe.min.js"></script>          <!-- A-Frame 1.2.0 -->
-  <script src="libs/mindar-image.prod.js"></script>
-  <script src="libs/mindar-image-aframe.prod.js"></script>
-  <!-- jeśli chcesz obsługiwać GIF-y, dołącz shader; usuń linijkę, jeśli niepotrzebny -->
-  <script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
+<!-- ←  dokładnie ta nazwa, która leży w libs/ -->
+<script src="libs/aframe-v1.2.0.min.js"></script>
+<script src="libs/mindar-image.prod.js"></script>
+<script src="libs/mindar-image-aframe.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
 
-  <style>
-    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
-    #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-         background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
-    a-scene{width:100vw;height:100vh}
-  </style>
-</head>
-<body>
+<style>body{margin:0;overflow:hidden;font-family:system-ui}#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-size:18px;z-index:9;text-align:center}a-scene{width:100vw;height:100vh}</style>
+</head><body>
 <div id="msg">🔍 Ładowanie…</div>
 
-<a-scene id="scene" embedded
-         mindar-image="imageTargetSrc:targets.mind; autoStart:true;"
-         vr-mode-ui="enabled:false"
-         device-orientation-permission-ui="enabled:true">
-
+<a-scene id="scene" embedded mindar-image="imageTargetSrc:targets.mind;autoStart:true;" vr-mode-ui="enabled:false" device-orientation-permission-ui="enabled:true">
   <a-assets>
-    <!--  tu trzymamy wszystkie nakładki  -->
     <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
     <img id="S1DOM_X"    src="assets/S1DOM_X.png">
-    <!-- nowe?  <img id="S2xxx_X" src="assets/S2xxx_X.png"> -->
   </a-assets>
-
   <a-camera look-controls="enabled:false"></a-camera>
-
-  <!-- pusta kotwica;  obiekty tworzymy dynamicznie -->
   <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
 (async()=>{
-/* ══════════════════════  KONFIGURACJA  ══════════════════════ */
-/* markerIndex → id elementu w <a-assets>                      */
-const mapping = {
-  0 : 'S1NAMIOT_X',   // marker 0  (S1Namiot.jpg)   → nakładka #S1NAMIOT_X
-  1 : 'S1DOM_X'       // marker 1  (S1DOM.jpg)      → nakładka #S1DOM_X
-  // 2 : 'S2xxx_X',    // dopisuj kolejne wiersze…
-};
-/* ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  */
-
-const MSG=document.getElementById('msg');
-const show=t=>(MSG.textContent=t,MSG.style.display='flex'),hide=()=>MSG.style.display='none';
-
-/* szybkie sanity-checki */
+const mapping={0:'S1NAMIOT_X',1:'S1DOM_X'};              // łatwo dodać kolejne
+const M=document.getElementById('msg'),show=t=>(M.textContent=t,M.style.display='flex'),hide=()=>M.style.display='none';
 if(typeof AFRAME!=='object'){show('❌ A-Frame niezaładowany');return}
 if(typeof MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
-if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){
-  show('❌ brak / pusty targets.mind');return}
-
-/* permission */
-try{
-  const s=await navigator.mediaDevices.getUserMedia({video:true});
-  s.getTracks().forEach(t=>t.stop());
-}catch(e){show('❌ kamera zablokowana');return}
-
+if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){show('❌ brak / pusty targets.mind');return}
+try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop());}catch(e){show('❌ kamera zablokowana');return}
 hide();
 
-/* pomocnicze cache aspect-ratio */
+const anchor=document.getElementById('anchor'),scene=document.getElementById('scene'),aspects={};
 function getAspect(img){return img.naturalHeight/img.naturalWidth}
-const aspects={};  // { imgId : aspect }
-
-const scene = document.getElementById('scene');
-const anchor= document.getElementById('anchor');
-
-/* targetFound / Lost globalnie (detail.index) */
-scene.addEventListener('targetFound', e=>{
-  const idx = e.detail.index;
-  const id  = mapping[idx];
-  if(!id) return;                        // nieobsługiwany marker
-  if(anchor.children.length) return;     // już jest
-
-  const tex = document.getElementById(id);
-  /* poczekaj aż obraz/gif się załaduje, żeby znać naturalHeight */
-  if(!tex.complete){ tex.onload = ()=> spawn(tex); }
-  else spawn(tex);
-});
-
-scene.addEventListener('targetLost', ()=> anchor.innerHTML='' );
-
 function spawn(tex){
-  const aspect = aspects[tex.id] ||= getAspect(tex);
   const p=document.createElement('a-plane');
   p.setAttribute('src','#'+tex.id);
   p.setAttribute('width','1');
-  p.setAttribute('height',aspect);
-  /* GIF – shader; inne: flat+transparent */
-  const isGif = tex.src.toLowerCase().endsWith('.gif');
-  p.setAttribute('material', isGif ? 'shader:gif;src:#'+tex.id
-                                   : 'shader:flat;transparent:true');
+  p.setAttribute('height', (aspects[tex.id] ||= getAspect(tex)));
+  const isGif=tex.src.toLowerCase().endsWith('.gif');
+  p.setAttribute('material', isGif ? 'shader:gif;src:#'+tex.id : 'shader:flat;transparent:true');
   anchor.appendChild(p);
 }
+scene.addEventListener('targetFound',e=>{
+  const id=mapping[e.detail.index]; if(!id||anchor.children.length) return;
+  const tex=document.getElementById(id); if(!tex) return;
+  if(tex.complete) spawn(tex); else tex.onload=()=>spawn(tex);
+});
+scene.addEventListener('targetLost',()=>anchor.innerHTML='');
 })();
 </script>
-</body>
-</html>
+</body></html>
