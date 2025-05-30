@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<title>WebAR multi-marker – safe</title>
+  <meta charset="utf-8">
+  <title>WebAR – S1DOM & S1NAMIOT</title>
 
-<script src="libs/aframe-v1.2.0.min.js"></script>
-<script src="libs/mindar-image.prod.js"></script>
-<script src="libs/mindar-image-aframe.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
+  <!-- biblioteki lokalne -->
+  <script src="libs/aframe-v1.2.0.min.js"></script>
+  <script src="libs/mindar-image.prod.js"></script>
+  <script src="libs/mindar-image-aframe.prod.js"></script>
+  <!-- GIF-y? zostaw; nie potrzebujesz – usuń linijkę -->
+  <script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
 
-<style>
- body{margin:0;overflow:hidden;font-family:system-ui}
- #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
- a-scene{width:100vw;height:100vh}
-</style>
+  <style>
+    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
+    #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+         background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
+    a-scene{width:100vw;height:100vh}
+  </style>
 </head>
 <body>
 <div id="msg">🔍 Ładowanie…</div>
@@ -25,8 +27,8 @@
          device-orientation-permission-ui="enabled:true">
 
   <a-assets>
-    <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
     <img id="S1DOM_X"    src="assets/S1DOM_X.png">
+    <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
   </a-assets>
 
   <a-camera look-controls="enabled:false"></a-camera>
@@ -35,59 +37,52 @@
 
 <script>
 (async()=>{
-/* -------- M A P P I N G  (index → asset-id) -------- */
-const mapping={
-  0:'S1NAMIOT_X',   // marker 0  → nakładka
-  1:'S1DOM_X'       // marker 1  → nakładka
+/* ======= mapowanie index → id nakładki =================== */
+const mapping = {
+  0 : 'S1DOM_X',      // S1DOM  → S1DOM_X.png
+  1 : 'S1NAMIOT_X'    // S1NAMIOT → S1NAMIOT_X.png
 };
-/* --------------------------------------------------- */
+/* ========================================================= */
 
+const box=(t)=>{MSG.textContent=t;MSG.style.display='flex'}, hide=()=>MSG.style.display='none';
 const MSG=document.getElementById('msg');
-const show=t=>(MSG.textContent=t,MSG.style.display='flex'),hide=()=>MSG.style.display='none';
 
-/* szybka kontrola bibliotek / plików (jak wcześniej) */
-if(typeof AFRAME!=='object'){show('❌ A-Frame niezaładowany');return}
-if(typeof MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
+/* sanity-check */
+if(typeof AFRAME!=='object'){box('❌ A-Frame niezaładowany');return}
+if(typeof MINDAR==='undefined'){box('❌ MindAR niezaładowany');return}
 if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){
-  show('❌ brak / pusty targets.mind');return}
-try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop())}
-catch{show('❌ kamera zablokowana');return}
+  box('❌ brak / pusty targets.mind');return}
+try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop());}
+catch{box('❌ kamera zablokowana');return}
 
 hide();
 
-/* cache aspect-ratio */
-const aspects={};
-const anchor=document.getElementById('anchor');
-function getAspect(el){return el.naturalHeight/el.naturalWidth}
-
+/* aspect-ratio cache */
+const aspects={}, anchor=document.getElementById('anchor');
+const scene =document.getElementById('scene');
+function aspect(el){return el.naturalHeight/el.naturalWidth}
 function spawn(assetId){
   const tex=document.getElementById(assetId); if(!tex) return;
-  const aspect=aspects[assetId] ||= getAspect(tex);
+  const h=aspects[assetId] ||= aspect(tex);
   const p=document.createElement('a-plane');
   p.setAttribute('src','#'+assetId);
-  p.setAttribute('width','1');
-  p.setAttribute('height',aspect);
-  const isGif=tex.src.toLowerCase().endsWith('.gif');
-  p.setAttribute('material', isGif ? 'shader:gif;src:#'+assetId
-                                   : 'shader:flat;transparent:true');
+  p.setAttribute('width','1'); p.setAttribute('height',h);
+  const gif=tex.src.toLowerCase().endsWith('.gif');
+  p.setAttribute('material', gif ? 'shader:gif;src:#'+assetId
+                                 : 'shader:flat;transparent:true');
   anchor.appendChild(p);
 }
 
-/* ------ JEDYNY listener – na <a-scene> ------ */
-document.getElementById('scene').addEventListener('targetFound',e=>{
-  /* ignoruj „puste” zdarzenia z <video> (detail=null) */
-  if(!e.detail || typeof e.detail.index==='undefined') return;
-
-  const idx=e.detail.index;
-  console.log('marker found → index:',idx,' name:',e.detail.name); // DEBUG
-  const asset=mapping[idx]; if(!asset) return;
-  if(anchor.children.length) anchor.innerHTML='';   // wyczyść ewentualny poprzedni
-  spawn(asset);
+/*   global listener – zdarzenie sceny ma detail.index   */
+scene.addEventListener('targetFound', e=>{
+  if(!e.detail||typeof e.detail.index==='undefined') return;   // filtr <video>
+  const idx=e.detail.index;  console.log('FOUND index',idx,e.detail.name);
+  const id=mapping[idx]; if(!id) return;
+  anchor.innerHTML='';      // wyczyść poprzedni
+  const tex=document.getElementById(id);
+  tex.complete ? spawn(id) : tex.onload=()=>spawn(id);
 });
-
-document.getElementById('scene').addEventListener('targetLost',()=>{
-  anchor.innerHTML='';
-});
+scene.addEventListener('targetLost',()=>anchor.innerHTML='');
 })();
 </script>
 </body>
