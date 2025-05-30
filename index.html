@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<title>WebAR – multi-marker (v2)</title>
+<title>WebAR multi-marker – safe</title>
 
 <script src="libs/aframe-v1.2.0.min.js"></script>
 <script src="libs/mindar-image.prod.js"></script>
@@ -35,63 +35,59 @@
 
 <script>
 (async()=>{
-/* ===== konfiguracja mapy marker → asset ===== */
-const mapping = {
-  0 : 'S1NAMIOT_X',  // S1Namiot.jpg  →  S1NAMIOT_X.png
-  1 : 'S1DOM_X'      // S1DOM.jpg     →  S1DOM_X.png
+/* -------- M A P P I N G  (index → asset-id) -------- */
+const mapping={
+  0:'S1NAMIOT_X',   // marker 0  → nakładka
+  1:'S1DOM_X'       // marker 1  → nakładka
 };
-/* ============================================ */
+/* --------------------------------------------------- */
 
-const msg  = document.getElementById('msg');
-const show = t => (msg.textContent=t,msg.style.display='flex');
-const hide = () =>  msg.style.display='none';
+const MSG=document.getElementById('msg');
+const show=t=>(MSG.textContent=t,MSG.style.display='flex'),hide=()=>MSG.style.display='none';
 
-/* sprawdzamy biblioteki */
+/* szybka kontrola bibliotek / plików (jak wcześniej) */
 if(typeof AFRAME!=='object'){show('❌ A-Frame niezaładowany');return}
-if(typeof window.MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
-
-/* sprawdzamy targets.mind */
-const ok = await fetch('targets.mind',{cache:'no-store'})
-                  .then(r=>r.ok && r.headers.get('content-length')!=='0')
-                  .catch(()=>false);
-if(!ok){show('❌ brak / pusty targets.mind');return}
-
-/* permission do kamery */
-try{
-  const s = await navigator.mediaDevices.getUserMedia({video:true});
-  s.getTracks().forEach(t=>t.stop());
-}catch{show('❌ kamera zablokowana');return}
+if(typeof MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
+if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){
+  show('❌ brak / pusty targets.mind');return}
+try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop())}
+catch{show('❌ kamera zablokowana');return}
 
 hide();
 
 /* cache aspect-ratio */
-const aspects = {};
-const anchor  = document.getElementById('anchor');
-const scene   = document.getElementById('scene');
-
+const aspects={};
+const anchor=document.getElementById('anchor');
 function getAspect(el){return el.naturalHeight/el.naturalWidth}
+
 function spawn(assetId){
-  const tex = document.getElementById(assetId);
-  if(!tex) return;
-  const aspect = aspects[assetId] ||= getAspect(tex);
-  const p = document.createElement('a-plane');
+  const tex=document.getElementById(assetId); if(!tex) return;
+  const aspect=aspects[assetId] ||= getAspect(tex);
+  const p=document.createElement('a-plane');
   p.setAttribute('src','#'+assetId);
   p.setAttribute('width','1');
   p.setAttribute('height',aspect);
-  const isGif = tex.src.toLowerCase().endsWith('.gif');
+  const isGif=tex.src.toLowerCase().endsWith('.gif');
   p.setAttribute('material', isGif ? 'shader:gif;src:#'+assetId
                                    : 'shader:flat;transparent:true');
   anchor.appendChild(p);
 }
 
-/*  ▶︎ słuchamy WYŁĄCZNIE na <a-scene>  */
-scene.addEventListener('targetFound', e=>{
-  const idx = e.detail.index;             // teraz zawsze istnieje
-  const asset = mapping[idx];
-  if(!asset || anchor.children.length) return;
+/* ------ JEDYNY listener – na <a-scene> ------ */
+document.getElementById('scene').addEventListener('targetFound',e=>{
+  /* ignoruj „puste” zdarzenia z <video> (detail=null) */
+  if(!e.detail || typeof e.detail.index==='undefined') return;
+
+  const idx=e.detail.index;
+  console.log('marker found → index:',idx,' name:',e.detail.name); // DEBUG
+  const asset=mapping[idx]; if(!asset) return;
+  if(anchor.children.length) anchor.innerHTML='';   // wyczyść ewentualny poprzedni
   spawn(asset);
 });
-scene.addEventListener('targetLost', () => anchor.innerHTML='');
+
+document.getElementById('scene').addEventListener('targetLost',()=>{
+  anchor.innerHTML='';
+});
 })();
 </script>
 </body>
