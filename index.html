@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<title>WebAR – Dom ↔ Namiot (poprawne)</title>
+  <meta charset="utf-8">
+  <title>WebAR – Dom & Namiot (mapa po name)</title>
 
-<script src="libs/aframe-v1.2.0.min.js"></script>
-<script src="libs/mindar-image.prod.js"></script>
-<script src="libs/mindar-image-aframe.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
+  <script src="libs/aframe-v1.2.0.min.js"></script>
+  <script src="libs/mindar-image.prod.js"></script>
+  <script src="libs/mindar-image-aframe.prod.js"></script>
 
-<style>
- body{margin:0;overflow:hidden;font-family:system-ui}
- #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
- a-scene{width:100vw;height:100vh}
-</style>
+  <style>
+    body{margin:0;overflow:hidden;font-family:system-ui}
+    #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+         background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
+    a-scene{width:100vw;height:100vh}
+  </style>
 </head>
 <body>
 <div id="msg">🔍 Ładowanie…</div>
@@ -25,54 +24,62 @@
          device-orientation-permission-ui="enabled:true">
 
   <a-assets>
-    <img id="tex-dom"    src="assets/S1DOM_X.png">
-    <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
+    <!-- id = NAZWA_źródła + “_X” -->
+    <img id="S1DOM_X"    src="assets/S1DOM_X.png">
+    <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
   </a-assets>
 
   <a-camera look-controls="enabled:false"></a-camera>
-
-  <!--  UWAGA: zamienione indexy  -->
-  <a-entity id="anchor-namiot" mindar-image-target="targetIndex:0"></a-entity> <!-- Namiot -->
-  <a-entity id="anchor-dom"    mindar-image-target="targetIndex:1"></a-entity> <!-- Dom   -->
+  <!-- jedna kotwica – plane dodajemy dynamicznie -->
+  <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
 (async()=>{
-/* --- krótki bootstrap (kontrola bibliotek, targets, permission) --- */
+/* mapa name → id nakładki  (dopisz kolejne wiersze tylko tutaj) */
+const mapping = {
+  'S1DOM'   : 'S1DOM_X',
+  'S1NAMIOT': 'S1NAMIOT_X'
+};
+/* ------------------------------------------------------------- */
+
 const MSG=document.getElementById('msg');
+const fail=t=>(MSG.textContent=t,MSG.style.display='flex');
+
+/* szybka walidacja */
 try{
   if(typeof AFRAME!=='object')            throw'❌ A-Frame niezaładowany';
   if(typeof MINDAR==='undefined')         throw'❌ MindAR niezaładowany';
   const r=await fetch('targets.mind');    if(!r.ok||r.headers.get('content-length')==='0') throw'❌ targets.mind brak / 0 B';
-  await navigator.mediaDevices.getUserMedia({video:true})
-        .then(s=>s.getTracks().forEach(t=>t.stop()));
+  await navigator.mediaDevices.getUserMedia({video:true}).then(s=>s.getTracks().forEach(t=>t.stop()));
   MSG.style.display='none';
-}catch(e){MSG.textContent=e;return}
+}catch(e){fail(e);return}
 
-/* pomocnicze: aspect-ratio + szybkie tworzenie plane’a */
-const aspects={}, anchorDom=document.getElementById('anchor-dom'),
-      anchorNam=document.getElementById('anchor-namiot');
-function aspect(img){return img.naturalHeight/img.naturalWidth}
-function spawn(anchor, texId){
-  anchor.innerHTML='';
-  const img=document.querySelector(texId);
-  const h=aspects[texId] ||= aspect(img);
+/* util – aspekt i tworzenie plane */
+const aspects={}, anchor=document.getElementById('anchor');
+function ratio(img){return img.naturalHeight/img.naturalWidth}
+function spawn(texId){
+  const img=document.getElementById(texId); if(!img) return;
+  const h=aspects[texId] ||= ratio(img);
   const p=document.createElement('a-plane');
-  p.setAttribute('src',texId);
+  p.setAttribute('src','#'+texId);
   p.setAttribute('width','1');
   p.setAttribute('height',h);
   p.setAttribute('position','0 0 0.001');
   p.setAttribute('material','shader:flat;transparent:true');
+  anchor.innerHTML='';          // wyczyść poprzedni
   anchor.appendChild(p);
 }
 
-/* Namiot — index 0 */
-anchorNam.addEventListener('targetFound',()=>spawn(anchorNam,'#tex-namiot'));
-anchorNam.addEventListener('targetLost', ()=>anchorNam.innerHTML='');
-
-/* Dom — index 1 */
-anchorDom.addEventListener('targetFound',()=>spawn(anchorDom,'#tex-dom'));
-anchorDom.addEventListener('targetLost', ()=>anchorDom.innerHTML='');
+/* globalny listener – używamy **name** */
+document.getElementById('scene').addEventListener('targetFound',e=>{
+  const n=e.detail?.name;                  // "S1DOM" / "S1NAMIOT"
+  if(!n) return;
+  console.log('FOUND',n);                  // debug
+  const texId = mapping[n];
+  if(texId) spawn(texId);
+});
+document.getElementById('scene').addEventListener('targetLost',()=>anchor.innerHTML='');
 })();
 </script>
 </body>
