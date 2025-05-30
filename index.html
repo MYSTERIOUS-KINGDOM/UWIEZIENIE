@@ -2,18 +2,20 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <title>WebAR – precyzyjna nakładka</title>
+  <title>WebAR – wiele markerów</title>
 
   <!-- lokalne biblioteki -->
-  <script src="libs/aframe-v1.2.0.min.js"></script>
+  <script src="libs/aframe.min.js"></script>          <!-- A-Frame 1.2.0 -->
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
+  <!-- jeśli chcesz obsługiwać GIF-y, dołącz shader; usuń linijkę, jeśli niepotrzebny -->
+  <script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
 
   <style>
-    body { margin:0; overflow:hidden; font-family:system-ui,Arial }
-    #msg  { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-            background:#000; color:#fff; font-size:18px; text-align:center; z-index:9 }
-    a-scene { width:100vw; height:100vh }
+    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
+    #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+         background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
+    a-scene{width:100vw;height:100vh}
   </style>
 </head>
 <body>
@@ -25,65 +27,80 @@
          device-orientation-permission-ui="enabled:true">
 
   <a-assets>
-    <!-- PNG pojawi się na markerze -->
-    <img id="overlay" src="assets/czarodziej.png">
+    <!--  tu trzymamy wszystkie nakładki  -->
+    <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
+    <img id="S1DOM_X"    src="assets/S1DOM_X.png">
+    <!-- nowe?  <img id="S2xxx_X" src="assets/S2xxx_X.png"> -->
   </a-assets>
 
   <a-camera look-controls="enabled:false"></a-camera>
+
+  <!-- pusta kotwica;  obiekty tworzymy dynamicznie -->
   <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
-(async () => {
-  const MSG = document.getElementById('msg');
-  const show = t => (MSG.textContent=t, MSG.style.display='flex');
-  const hide = () =>  MSG.style.display='none';
+(async()=>{
+/* ══════════════════════  KONFIGURACJA  ══════════════════════ */
+/* markerIndex → id elementu w <a-assets>                      */
+const mapping = {
+  0 : 'S1NAMIOT_X',   // marker 0  (S1Namiot.jpg)   → nakładka #S1NAMIOT_X
+  1 : 'S1DOM_X'       // marker 1  (S1DOM.jpg)      → nakładka #S1DOM_X
+  // 2 : 'S2xxx_X',    // dopisuj kolejne wiersze…
+};
+/* ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  */
 
-  /* 1. weryfikacja bibliotek */
-  if (typeof AFRAME!=='object')           { show('❌ A-Frame niezaładowany'); return; }
-  if (typeof window.MINDAR==='undefined'){ show('❌ MindAR niezaładowany');  return; }
+const MSG=document.getElementById('msg');
+const show=t=>(MSG.textContent=t,MSG.style.display='flex'),hide=()=>MSG.style.display='none';
 
-  /* 2. czy jest plik targets.mind (>0 B) */
-  const ok = await fetch('targets.mind',{cache:'no-store'})
-                    .then(r=>r.ok && r.headers.get('content-length')!=='0')
-                    .catch(()=>false);
-  if (!ok){ show('❌ Brak / pusty targets.mind'); return; }
+/* szybkie sanity-checki */
+if(typeof AFRAME!=='object'){show('❌ A-Frame niezaładowany');return}
+if(typeof MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
+if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){
+  show('❌ brak / pusty targets.mind');return}
 
-  /* 3. poproś o tylną kamerę (permission) */
-  try{
-    const s = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ ideal:'environment' } }
-    });
-    s.getTracks().forEach(t=>t.stop());
-  }catch(e){ show('❌ Kamera zablokowana'); return; }
+/* permission */
+try{
+  const s=await navigator.mediaDevices.getUserMedia({video:true});
+  s.getTracks().forEach(t=>t.stop());
+}catch(e){show('❌ kamera zablokowana');return}
 
-  hide();                                 /* wszystko OK */
+hide();
 
-  const scene  = document.getElementById('scene');
-  const anchor = document.getElementById('anchor');
-  const img    = document.getElementById('overlay');
+/* pomocnicze cache aspect-ratio */
+function getAspect(img){return img.naturalHeight/img.naturalWidth}
+const aspects={};  // { imgId : aspect }
 
-  /* 4. czekaj aż obrazek się załaduje, żeby znać naturalny rozmiar */
-  await new Promise(res=>{
-    if (img.complete) res(); else img.onload = res;
-  });
+const scene = document.getElementById('scene');
+const anchor= document.getElementById('anchor');
 
-  const aspect = img.naturalHeight / img.naturalWidth;   // np. 0.75
-  const yOffset = 0;   // ← jeśli PNG ma pusty margines u góry/dole, wpisz np. -0.05
+/* targetFound / Lost globalnie (detail.index) */
+scene.addEventListener('targetFound', e=>{
+  const idx = e.detail.index;
+  const id  = mapping[idx];
+  if(!id) return;                        // nieobsługiwany marker
+  if(anchor.children.length) return;     // już jest
 
-  scene.addEventListener('targetFound', () => {
-    if (anchor.children.length) return;
+  const tex = document.getElementById(id);
+  /* poczekaj aż obraz/gif się załaduje, żeby znać naturalHeight */
+  if(!tex.complete){ tex.onload = ()=> spawn(tex); }
+  else spawn(tex);
+});
 
-    const plane = document.createElement('a-plane');
-    plane.setAttribute('src', '#overlay');
-    plane.setAttribute('width',  '1');
-    plane.setAttribute('height', aspect.toString());      // dopasuj wysokość
-    plane.setAttribute('position', `0 ${yOffset} 0`);     // środek markera (ew. korekta Y)
-    plane.setAttribute('material', 'shader:flat;transparent:true');
-    anchor.appendChild(plane);
-  });
+scene.addEventListener('targetLost', ()=> anchor.innerHTML='' );
 
-  scene.addEventListener('targetLost', () => anchor.innerHTML = '');
+function spawn(tex){
+  const aspect = aspects[tex.id] ||= getAspect(tex);
+  const p=document.createElement('a-plane');
+  p.setAttribute('src','#'+tex.id);
+  p.setAttribute('width','1');
+  p.setAttribute('height',aspect);
+  /* GIF – shader; inne: flat+transparent */
+  const isGif = tex.src.toLowerCase().endsWith('.gif');
+  p.setAttribute('material', isGif ? 'shader:gif;src:#'+tex.id
+                                   : 'shader:flat;transparent:true');
+  anchor.appendChild(p);
+}
 })();
 </script>
 </body>
