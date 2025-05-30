@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<title>WebAR – DOM & NAMIOT (kotwice 0-1)</title>
+<title>WebAR – Dom ↔ Namiot (poprawne)</title>
 
 <script src="libs/aframe-v1.2.0.min.js"></script>
 <script src="libs/mindar-image.prod.js"></script>
@@ -20,7 +20,7 @@
 <div id="msg">🔍 Ładowanie…</div>
 
 <a-scene id="scene" embedded
-         mindar-image="imageTargetSrc:targets.mind; autoStart:true;"
+         mindar-image="imageTargetSrc:targets.mind;autoStart:true;"
          vr-mode-ui="enabled:false"
          device-orientation-permission-ui="enabled:true">
 
@@ -31,47 +31,48 @@
 
   <a-camera look-controls="enabled:false"></a-camera>
 
-  <!-- osobne kotwice ➜ MindAR sam nimi zarządza -->
-  <a-entity id="anchor-dom"    mindar-image-target="targetIndex:0"></a-entity>
-  <a-entity id="anchor-namiot" mindar-image-target="targetIndex:1"></a-entity>
+  <!--  UWAGA: zamienione indexy  -->
+  <a-entity id="anchor-namiot" mindar-image-target="targetIndex:0"></a-entity> <!-- Namiot -->
+  <a-entity id="anchor-dom"    mindar-image-target="targetIndex:1"></a-entity> <!-- Dom   -->
 </a-scene>
 
 <script>
 (async()=>{
-/* drobny bootstrap (jak zwykle) */
+/* --- krótki bootstrap (kontrola bibliotek, targets, permission) --- */
 const MSG=document.getElementById('msg');
-const fail=t=>(MSG.textContent=t,MSG.style.display='flex');
 try{
   if(typeof AFRAME!=='object')            throw'❌ A-Frame niezaładowany';
   if(typeof MINDAR==='undefined')         throw'❌ MindAR niezaładowany';
-  const r=await fetch('targets.mind');    if(!r.ok||r.headers.get('content-length')==='0')throw'❌ targets.mind brak/pusty';
-  await navigator.mediaDevices.getUserMedia({video:true}).then(s=>s.getTracks().forEach(t=>t.stop()));
-}catch(e){fail(e);return}
-MSG.style.display='none';
+  const r=await fetch('targets.mind');    if(!r.ok||r.headers.get('content-length')==='0') throw'❌ targets.mind brak / 0 B';
+  await navigator.mediaDevices.getUserMedia({video:true})
+        .then(s=>s.getTracks().forEach(t=>t.stop()));
+  MSG.style.display='none';
+}catch(e){MSG.textContent=e;return}
 
-/* util → generuje plane dla wskazanego anchor+texture */
-function addPlane(anchor, texId){
-  anchor.innerHTML='';                         // kasujemy poprzedni
+/* pomocnicze: aspect-ratio + szybkie tworzenie plane’a */
+const aspects={}, anchorDom=document.getElementById('anchor-dom'),
+      anchorNam=document.getElementById('anchor-namiot');
+function aspect(img){return img.naturalHeight/img.naturalWidth}
+function spawn(anchor, texId){
+  anchor.innerHTML='';
   const img=document.querySelector(texId);
-  const h = img.naturalHeight / img.naturalWidth;
-  const p = document.createElement('a-plane');
+  const h=aspects[texId] ||= aspect(img);
+  const p=document.createElement('a-plane');
   p.setAttribute('src',texId);
   p.setAttribute('width','1');
   p.setAttribute('height',h);
-  p.setAttribute('position','0 0 0.001');      // odsunąć o 0.001 — nie zasłania punktów
+  p.setAttribute('position','0 0 0.001');
   p.setAttribute('material','shader:flat;transparent:true');
   anchor.appendChild(p);
 }
 
-/* kotwica DOM (index 0) */
-const aDom=document.getElementById('anchor-dom');
-aDom.addEventListener('targetFound', ()=> addPlane(aDom,'#tex-dom') );
-aDom.addEventListener('targetLost', ()=> aDom.innerHTML='' );
+/* Namiot — index 0 */
+anchorNam.addEventListener('targetFound',()=>spawn(anchorNam,'#tex-namiot'));
+anchorNam.addEventListener('targetLost', ()=>anchorNam.innerHTML='');
 
-/* kotwica NAMIOT (index 1) */
-const aNam=document.getElementById('anchor-namiot');
-aNam.addEventListener('targetFound', ()=> addPlane(aNam,'#tex-namiot') );
-aNam.addEventListener('targetLost', ()=> aNam.innerHTML='' );
+/* Dom — index 1 */
+anchorDom.addEventListener('targetFound',()=>spawn(anchorDom,'#tex-dom'));
+anchorDom.addEventListener('targetLost', ()=>anchorDom.innerHTML='');
 })();
 </script>
 </body>
