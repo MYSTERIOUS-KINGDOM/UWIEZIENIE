@@ -1,52 +1,98 @@
-<!DOCTYPE html><html lang="pl"><head>
-<meta charset="utf-8"><title>WebAR multi-marker</title>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>WebAR – multi-marker (v2)</title>
 
-<!-- ←  dokładnie ta nazwa, która leży w libs/ -->
 <script src="libs/aframe-v1.2.0.min.js"></script>
 <script src="libs/mindar-image.prod.js"></script>
 <script src="libs/mindar-image-aframe.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/richard-hart/aframe-gif-shader@master/dist/aframe-gif-shader.min.js"></script>
 
-<style>body{margin:0;overflow:hidden;font-family:system-ui}#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-size:18px;z-index:9;text-align:center}a-scene{width:100vw;height:100vh}</style>
-</head><body>
+<style>
+ body{margin:0;overflow:hidden;font-family:system-ui}
+ #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
+ a-scene{width:100vw;height:100vh}
+</style>
+</head>
+<body>
 <div id="msg">🔍 Ładowanie…</div>
 
-<a-scene id="scene" embedded mindar-image="imageTargetSrc:targets.mind;autoStart:true;" vr-mode-ui="enabled:false" device-orientation-permission-ui="enabled:true">
+<a-scene id="scene" embedded
+         mindar-image="imageTargetSrc:targets.mind;autoStart:true;"
+         vr-mode-ui="enabled:false"
+         device-orientation-permission-ui="enabled:true">
+
   <a-assets>
     <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
     <img id="S1DOM_X"    src="assets/S1DOM_X.png">
   </a-assets>
+
   <a-camera look-controls="enabled:false"></a-camera>
   <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
 (async()=>{
-const mapping={0:'S1NAMIOT_X',1:'S1DOM_X'};              // łatwo dodać kolejne
-const M=document.getElementById('msg'),show=t=>(M.textContent=t,M.style.display='flex'),hide=()=>M.style.display='none';
+/* ===== konfiguracja mapy marker → asset ===== */
+const mapping = {
+  0 : 'S1NAMIOT_X',  // S1Namiot.jpg  →  S1NAMIOT_X.png
+  1 : 'S1DOM_X'      // S1DOM.jpg     →  S1DOM_X.png
+};
+/* ============================================ */
+
+const msg  = document.getElementById('msg');
+const show = t => (msg.textContent=t,msg.style.display='flex');
+const hide = () =>  msg.style.display='none';
+
+/* sprawdzamy biblioteki */
 if(typeof AFRAME!=='object'){show('❌ A-Frame niezaładowany');return}
-if(typeof MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
-if(!(await fetch('targets.mind').then(r=>r.ok&&r.headers.get('content-length')!=='0').catch(()=>0))){show('❌ brak / pusty targets.mind');return}
-try{const s=await navigator.mediaDevices.getUserMedia({video:true});s.getTracks().forEach(t=>t.stop());}catch(e){show('❌ kamera zablokowana');return}
+if(typeof window.MINDAR==='undefined'){show('❌ MindAR niezaładowany');return}
+
+/* sprawdzamy targets.mind */
+const ok = await fetch('targets.mind',{cache:'no-store'})
+                  .then(r=>r.ok && r.headers.get('content-length')!=='0')
+                  .catch(()=>false);
+if(!ok){show('❌ brak / pusty targets.mind');return}
+
+/* permission do kamery */
+try{
+  const s = await navigator.mediaDevices.getUserMedia({video:true});
+  s.getTracks().forEach(t=>t.stop());
+}catch{show('❌ kamera zablokowana');return}
+
 hide();
 
-const anchor=document.getElementById('anchor'),scene=document.getElementById('scene'),aspects={};
-function getAspect(img){return img.naturalHeight/img.naturalWidth}
-function spawn(tex){
-  const p=document.createElement('a-plane');
-  p.setAttribute('src','#'+tex.id);
+/* cache aspect-ratio */
+const aspects = {};
+const anchor  = document.getElementById('anchor');
+const scene   = document.getElementById('scene');
+
+function getAspect(el){return el.naturalHeight/el.naturalWidth}
+function spawn(assetId){
+  const tex = document.getElementById(assetId);
+  if(!tex) return;
+  const aspect = aspects[assetId] ||= getAspect(tex);
+  const p = document.createElement('a-plane');
+  p.setAttribute('src','#'+assetId);
   p.setAttribute('width','1');
-  p.setAttribute('height', (aspects[tex.id] ||= getAspect(tex)));
-  const isGif=tex.src.toLowerCase().endsWith('.gif');
-  p.setAttribute('material', isGif ? 'shader:gif;src:#'+tex.id : 'shader:flat;transparent:true');
+  p.setAttribute('height',aspect);
+  const isGif = tex.src.toLowerCase().endsWith('.gif');
+  p.setAttribute('material', isGif ? 'shader:gif;src:#'+assetId
+                                   : 'shader:flat;transparent:true');
   anchor.appendChild(p);
 }
-scene.addEventListener('targetFound',e=>{
-  const id=mapping[e.detail.index]; if(!id||anchor.children.length) return;
-  const tex=document.getElementById(id); if(!tex) return;
-  if(tex.complete) spawn(tex); else tex.onload=()=>spawn(tex);
+
+/*  ▶︎ słuchamy WYŁĄCZNIE na <a-scene>  */
+scene.addEventListener('targetFound', e=>{
+  const idx = e.detail.index;             // teraz zawsze istnieje
+  const asset = mapping[idx];
+  if(!asset || anchor.children.length) return;
+  spawn(asset);
 });
-scene.addEventListener('targetLost',()=>anchor.innerHTML='');
+scene.addEventListener('targetLost', () => anchor.innerHTML='');
 })();
 </script>
-</body></html>
+</body>
+</html>
