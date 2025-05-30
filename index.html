@@ -2,82 +2,108 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8">
-  <title>WebAR – Dom & Namiot (mapa po name)</title>
+  <title>WebAR – DOM & NAMIOT + logo WIZJA</title>
 
+  <!-- lokalne biblioteki -->
   <script src="libs/aframe-v1.2.0.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
 
   <style>
-    body{margin:0;overflow:hidden;font-family:system-ui}
-    #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-         background:#000;color:#fff;font-size:18px;text-align:center;z-index:9}
+    body{margin:0;overflow:hidden;font-family:system-ui,Arial}
+
+    /* komunikat startowy */
+    #msg{
+      position:fixed;inset:0;
+      display:flex;align-items:center;justify-content:center;
+      background:#000;color:#fff;font-size:18px;text-align:center;
+      z-index:9
+    }
+
+    /* stałe logo – plik WIZJA.png */
+    #hud-logo{
+      position:fixed;top:8px;left:8px;
+      width:40px;                 /* zmień wg potrzeb */
+      z-index:9999;
+      pointer-events:none         /* nie blokuje kliknięć */
+    }
+
     a-scene{width:100vw;height:100vh}
   </style>
 </head>
 <body>
-<div id="msg">🔍 Ładowanie…</div>
 
-<a-scene id="scene" embedded
-         mindar-image="imageTargetSrc:targets.mind;autoStart:true;"
-         vr-mode-ui="enabled:false"
-         device-orientation-permission-ui="enabled:true">
+  <!-- stała ikonka – po prostu PNG w rogu -->
+  <img id="hud-logo" src="assets/WIZJA.png" alt="logo">
 
-  <a-assets>
-    <!-- id = NAZWA_źródła + “_X” -->
-    <img id="S1DOM_X"    src="assets/S1DOM_X.png">
-    <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
-  </a-assets>
+  <div id="msg">🔍 Ładowanie…</div>
 
-  <a-camera look-controls="enabled:false"></a-camera>
-  <!-- jedna kotwica – plane dodajemy dynamicznie -->
-  <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
-</a-scene>
+  <a-scene id="scene" embedded
+           mindar-image="imageTargetSrc:targets.mind;autoStart:true;"
+           vr-mode-ui="enabled:false"
+           device-orientation-permission-ui="enabled:true">
+
+    <a-assets>
+      <img id="S1DOM_X"    src="assets/S1DOM_X.png">
+      <img id="S1NAMIOT_X" src="assets/S1NAMIOT_X.png">
+    </a-assets>
+
+    <a-camera look-controls="enabled:false"></a-camera>
+    <a-entity id="anchor" mindar-image-target="targetIndex:0"></a-entity>
+  </a-scene>
 
 <script>
 (async()=>{
-/* mapa name → id nakładki  (dopisz kolejne wiersze tylko tutaj) */
-const mapping = {
-  'S1DOM'   : 'S1DOM_X',
-  'S1NAMIOT': 'S1NAMIOT_X'
+/*  mapowanie NAZWA markera → id nakładki  */
+const mapping={
+  'S1DOM'   :'S1DOM_X',
+  'S1NAMIOT':'S1NAMIOT_X'
 };
-/* ------------------------------------------------------------- */
 
 const MSG=document.getElementById('msg');
 const fail=t=>(MSG.textContent=t,MSG.style.display='flex');
 
-/* szybka walidacja */
+/* szybka kontrola środowiska */
 try{
   if(typeof AFRAME!=='object')            throw'❌ A-Frame niezaładowany';
   if(typeof MINDAR==='undefined')         throw'❌ MindAR niezaładowany';
-  const r=await fetch('targets.mind');    if(!r.ok||r.headers.get('content-length')==='0') throw'❌ targets.mind brak / 0 B';
-  await navigator.mediaDevices.getUserMedia({video:true}).then(s=>s.getTracks().forEach(t=>t.stop()));
+
+  const r=await fetch('targets.mind');
+  if(!r.ok||r.headers.get('content-length')==='0')
+    throw'❌ targets.mind brak / 0 B';
+
+  await navigator.mediaDevices.getUserMedia({video:true})
+        .then(s=>s.getTracks().forEach(t=>t.stop()));
+
   MSG.style.display='none';
 }catch(e){fail(e);return}
 
-/* util – aspekt i tworzenie plane */
+/* aspect-ratio cache + funkcja dodająca plane */
 const aspects={}, anchor=document.getElementById('anchor');
-function ratio(img){return img.naturalHeight/img.naturalWidth}
+const ratio=img=>img.naturalHeight/img.naturalWidth;
 function spawn(texId){
   const img=document.getElementById(texId); if(!img) return;
-  const h=aspects[texId] ||= ratio(img);
-  const p=document.createElement('a-plane');
+  const h = aspects[texId] ||= ratio(img);
+  const p = document.createElement('a-plane');
   p.setAttribute('src','#'+texId);
   p.setAttribute('width','1');
   p.setAttribute('height',h);
   p.setAttribute('position','0 0 0.001');
   p.setAttribute('material','shader:flat;transparent:true');
-  anchor.innerHTML='';          // wyczyść poprzedni
+  anchor.innerHTML='';
   anchor.appendChild(p);
 }
 
-/* globalny listener – używamy **name** */
+/* global listener – używamy detail.name */
 document.getElementById('scene').addEventListener('targetFound',e=>{
-  const n=e.detail?.name;                  // "S1DOM" / "S1NAMIOT"
-  if(!n) return;
-  console.log('FOUND',n);                  // debug
-  const texId = mapping[n];
-  if(texId) spawn(texId);
+  const name=e.detail?.name;                  // "S1DOM" / "S1NAMIOT"
+  if(!name) return;
+  const texId=mapping[name];
+  if(texId){
+    const img=document.getElementById(texId);
+    img.complete ? spawn(texId)
+                 : img.onload=()=>spawn(texId);
+  }
 });
 document.getElementById('scene').addEventListener('targetLost',()=>anchor.innerHTML='');
 })();
