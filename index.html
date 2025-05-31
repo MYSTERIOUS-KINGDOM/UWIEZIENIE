@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <title>WebAR – Dom & Namiot + czysty podgląd kamery</title>
+  <title>WebAR – idealne dopasowanie nakładek</title>
 
   <!-- lokalne biblioteki -->
   <script src="libs/aframe-v1.2.0.min.js"></script>
@@ -16,7 +16,7 @@
       overflow: hidden;
       font-family: system-ui;
       height: 100%;
-      background: transparent; /* Usuń czarne tło */
+      background: transparent;
     }
     /* komunikat startowy (ukryje się po inicjalizacji) */
     #msg {
@@ -44,7 +44,7 @@
       z-index: 10000;
       pointer-events: none;
     }
-    /* scena AR – upewnij się, że jest widoczna */
+    /* scena AR */
     a-scene {
       width: 100vw;
       height: 100vh;
@@ -83,13 +83,15 @@
            device-orientation-permission-ui="enabled: true">
 
     <a-assets>
+      <!-- Zakładamy, że markery S1NAMIOT.jpg i S1DOM.jpg są kwadratowe (np. 750×750 px) -->
+      <!-- Nakładki S1NAMIOT_X.png i S1DOM_X.png muszą być przycięte do dokładnie tych samych proporcji i rozmiarów (bez dodatkowych marginesów). -->
       <img id="tex-dom"    src="assets/S1DOM_X.png">
       <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
     </a-assets>
 
     <a-camera look-controls="enabled: false"></a-camera>
 
-    <!-- kotwice: 0 = Namiot, 1 = Dom -->
+    <!-- kotwice per marker (0 = Namiot, 1 = Dom) -->
     <a-entity id="anchor-namiot" mindar-image-target="targetIndex: 0"></a-entity>
     <a-entity id="anchor-dom"    mindar-image-target="targetIndex: 1"></a-entity>
   </a-scene>
@@ -99,14 +101,14 @@
 
 <script>
 (async()=>{
-  // 1. Weryfikacja bibliotek i targets.mind
+  // 1. Weryfikacja bibliotek i pliku targets.mind
   const M = document.getElementById('msg');
   try {
     if (typeof AFRAME !== 'object') throw '❌ A-Frame niezaładowany';
     if (typeof MINDAR === 'undefined') throw '❌ MindAR niezaładowany';
     const r = await fetch('targets.mind');
     if (!r.ok || r.headers.get('content-length') === '0') throw '❌ brak/pusty targets.mind';
-    // uzyskanie pozwolenia na kamerę (część WebAR)
+    // uzyskanie pozwolenia na kamerę, żeby MindAR mogło od razu startować
     await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       .then(stream => stream.getTracks().forEach(t => t.stop()));
     M.style.display = 'none';
@@ -115,19 +117,18 @@
     return;
   }
 
-  // 2. Pomocnicza funkcja do nakładek AR
-  function addPlane(anchor, texId, opts={}) {
+  // 2. Pomocnicza funkcja dodająca plane idealnie 1×1 (marker jest kwadratowy)
+  function addPlane(anchor, texId) {
     const img = document.querySelector(texId);
     if (!img) return;
-    const baseH = img.naturalHeight / img.naturalWidth;
-    const scale = opts.scale ?? 1;
-    const zOff = opts.z ?? 0.005;
+    // Zakładamy marker = kwadrat (1×1). Nakładka powinna mieć identyczny AR, więc width=1, height=1.
     anchor.innerHTML = '';
     const p = document.createElement('a-plane');
     p.setAttribute('src', texId);
-    p.setAttribute('width', scale);
-    p.setAttribute('height', baseH * scale);
-    p.setAttribute('position', `0 0 ${zOff}`);
+    p.setAttribute('width', '1');
+    p.setAttribute('height', '1');
+    // Odsuń o minimalną wartość w Z, żeby nie zasłaniać punktów detekcji markera
+    p.setAttribute('position', '0 0 0.005');
     p.setAttribute('material', 'shader:flat;transparent:true');
     anchor.appendChild(p);
   }
@@ -135,7 +136,8 @@
   // 3. Kotwice dla Namiotu i Domu
   const aN = document.getElementById('anchor-namiot');
   aN.addEventListener('targetFound', () => {
-    addPlane(aN, '#tex-namiot', { scale: 0.9, z: 0.01 });
+    // bez skalowania — zawsze 1×1
+    addPlane(aN, '#tex-namiot');
   });
   aN.addEventListener('targetLost', () => aN.innerHTML = '');
 
@@ -160,14 +162,14 @@
     }
   }
 
-  // 5. Po stuknięciu usuwamy AR i wyświetlamy tylko kamerę
+  // 5. Po stuknięciu wyłącz AR i wyświetl tylko kamerę
   window.addEventListener('pointerdown', () => {
     // zatrzymanie silnika MindAR
     const sys = document.getElementById('scene')
                   .systems['mindar-image-system'];
     if (sys) sys.stop();
 
-    // wyłączenie wszystkich istniejących <video> oprócz #cameraFeed
+    // wyłączenie wszystkich <video> oprócz #cameraFeed
     document.querySelectorAll('video').forEach(v => {
       if (v.id !== 'cameraFeed') {
         v.srcObject?.getTracks().forEach(t => t.stop());
@@ -179,7 +181,7 @@
     document.getElementById('scene').style.display = 'none';
     document.getElementById('hud-logo').style.display = 'none';
 
-    // włączenie surowego podglądu kamery
+    // włączenie czystego podglądu kamery
     startCameraFeed();
   }, { once: true });
 })();
