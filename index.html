@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <title>WebAR – Dom & Namiot + kamera po tapnięciu</title>
+  <title>WebAR – Dom & Namiot + czysty podgląd kamery</title>
 
   <!-- lokalne biblioteki -->
   <script src="libs/aframe-v1.2.0.min.js"></script>
@@ -10,7 +10,15 @@
   <script src="libs/mindar-image-aframe.prod.js"></script>
 
   <style>
-    html, body { margin: 0; padding: 0; overflow: hidden; font-family: system-ui; height: 100%; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: system-ui;
+      height: 100%;
+      background: #000;
+    }
+    /* komunikat startowy (ukryje się po inicjalizacji) */
     #msg {
       position: fixed;
       inset: 0;
@@ -23,6 +31,7 @@
       text-align: center;
       z-index: 9;
     }
+    /* stałe logo */
     #hud-logo {
       position: fixed;
       top: 8px;
@@ -35,7 +44,12 @@
       z-index: 10000;
       pointer-events: none;
     }
-    a-scene { width: 100vw; height: 100vh; }
+    /* scena AR */
+    a-scene {
+      width: 100vw;
+      height: 100vh;
+    }
+    /* element <video> do czystego podglądu kamery */
     #cameraFeed {
       position: fixed;
       top: 0;
@@ -45,6 +59,7 @@
       object-fit: cover;
       display: none;
       z-index: 1;
+      background: #000;
     }
   </style>
 </head>
@@ -73,35 +88,33 @@
 
     <a-camera look-controls="enabled: false"></a-camera>
 
-    <!-- kotwice per marker (0 = Namiot, 1 = Dom) -->
+    <!-- kotwice: 0 = Namiot, 1 = Dom -->
     <a-entity id="anchor-namiot" mindar-image-target="targetIndex: 0"></a-entity>
     <a-entity id="anchor-dom"    mindar-image-target="targetIndex: 1"></a-entity>
   </a-scene>
 
-  <!-- element <video> do podglądu kamery po wyłączeniu AR -->
+  <!-- surowy podgląd kamery -->
   <video id="cameraFeed" autoplay playsinline muted></video>
 
 <script>
 (async()=>{
-  /* ── bootstrap: weryfikacja i rozpoczęcie skanowania WebAR ── */
+  // 1. Weryfikacja bibliotek i targets.mind
   const M = document.getElementById('msg');
   try {
-    if (typeof AFRAME !== 'object')            throw '❌ A-Frame niezaładowany';
-    if (typeof MINDAR === 'undefined')         throw '❌ MindAR niezaładowany';
+    if (typeof AFRAME !== 'object') throw '❌ A-Frame niezaładowany';
+    if (typeof MINDAR === 'undefined') throw '❌ MindAR niezaładowany';
     const r = await fetch('targets.mind');
-    if (!r.ok || r.headers.get('content-length') === '0') throw '❌ targets.mind brak / 0 B';
-
-    // zapytanie o dostęp do kamery, aby użytkownik udzielił pozwolenia
-    await navigator.mediaDevices.getUserMedia({ video: true })
-      .then(s => s.getTracks().forEach(t => t.stop()));
+    if (!r.ok || r.headers.get('content-length') === '0') throw '❌ brak/pusty targets.mind';
+    // uzyskanie pozwolenia na kamerę
+    await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => stream.getTracks().forEach(t => t.stop()));
     M.style.display = 'none';
   } catch(e) {
     M.textContent = e;
     return;
   }
-  /* ──────────────────────────────────────────────────────── */
 
-  /* ── funkcja do tworzenia nakładki (plane) ── */
+  // 2. Pomocnicza funkcja do nakładek AR
   function addPlane(anchor, texId, opts={}) {
     const img = document.querySelector(texId);
     if (!img) return;
@@ -118,24 +131,27 @@
     anchor.appendChild(p);
   }
 
-  /* ── obsługa kotwic ── */
-  const anchorNamiot = document.getElementById('anchor-namiot');
-  anchorNamiot.addEventListener('targetFound', () => {
-    addPlane(anchorNamiot, '#tex-namiot', { scale: 0.9, z: 0.01 });
+  // 3. Kotwice dla Namiotu i Domu
+  const aN = document.getElementById('anchor-namiot');
+  aN.addEventListener('targetFound', () => {
+    addPlane(aN, '#tex-namiot', { scale: 0.9, z: 0.01 });
   });
-  anchorNamiot.addEventListener('targetLost', () => anchorNamiot.innerHTML = '');
+  aN.addEventListener('targetLost', () => aN.innerHTML = '');
 
-  const anchorDom = document.getElementById('anchor-dom');
-  anchorDom.addEventListener('targetFound', () => {
-    addPlane(anchorDom, '#tex-dom');
+  const aD = document.getElementById('anchor-dom');
+  aD.addEventListener('targetFound', () => {
+    addPlane(aD, '#tex-dom');
   });
-  anchorDom.addEventListener('targetLost', () => anchorDom.innerHTML = '');
+  aD.addEventListener('targetLost', () => aD.innerHTML = '');
 
-  /* ── funkcja uruchamiająca podgląd czystej kamery ── */
+  // 4. Funkcja uruchamiająca czysty podgląd kamery
   async function startCameraFeed() {
     const videoEl = document.getElementById('cameraFeed');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
       videoEl.srcObject = stream;
       videoEl.style.display = 'block';
     } catch(err) {
@@ -143,26 +159,26 @@
     }
   }
 
-  /* ── wyłączanie AR i przejście do podglądu kamery ── */
+  // 5. Po stuknięciu usuwamy AR i wyświetlamy tylko kamerę
   window.addEventListener('pointerdown', () => {
-    // 1) zatrzymanie MindAR
+    // zatrzymanie silnika MindAR
     const sys = document.getElementById('scene')
                   .systems['mindar-image-system'];
     if (sys) sys.stop();
 
-    // 2) zatrzymanie wewnętrznych strumieni wideo A-Frame/MindAR (np. demo video elementów)
+    // wyłączenie wszystkich istniejących <video> oprócz #cameraFeed
     document.querySelectorAll('video').forEach(v => {
       if (v.id !== 'cameraFeed') {
         v.srcObject?.getTracks().forEach(t => t.stop());
-        v.remove(); // usuń wszystkie inne <video>, zostawimy nasz #cameraFeed
+        v.remove();
       }
     });
 
-    // 3) ukrycie sceny AR i logo
+    // ukrycie sceny AR i logo
     document.getElementById('scene').style.display = 'none';
     document.getElementById('hud-logo').style.display = 'none';
 
-    // 4) włączenie własnego podglądu kamery
+    // włączenie surowego podglądu kamery
     startCameraFeed();
   }, { once: true });
 })();
