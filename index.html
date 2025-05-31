@@ -1,187 +1,88 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <title>WebAR – uproszczone ładowanie</title>
+<meta charset="utf-8">
+<title>WebAR – Dom & Namiot (stabilny) + logo</title>
 
-  <!-- lokalne biblioteki -->
-  <script src="libs/aframe-v1.2.0.min.js"></script>
-  <script src="libs/mindar-image.prod.js"></script>
-  <script src="libs/mindar-image-aframe.prod.js"></script>
+<!-- biblioteki -->
+<script src="libs/aframe-v1.2.0.min.js"></script>
+<script src="libs/mindar-image.prod.js"></script>
+<script src="libs/mindar-image-aframe.prod.js"></script>
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: system-ui;
-      height: 100%;
-      background: transparent;
-    }
-    /* komunikat startowy (zniknie po inicjalizacji) */
-    #msg {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      font-size: 18px;
-      text-align: center;
-      z-index: 9;
-    }
-    /* stałe logo */
-    #hud-logo {
-      position: fixed;
-      top: 8px;
-      left: 8px;
-      width: 64px;
-      height: auto;
-      background: #ffffffb0;
-      border: 2px solid #fff;
-      border-radius: 8px;
-      z-index: 10000;
-      pointer-events: none;
-    }
-    /* scena AR – tło przezroczyste, bez niebieskiego ekranu ładowania */
-    a-scene {
-      width: 100vw;
-      height: 100vh;
-      background: transparent !important;
-    }
-    /* element <video> do czystego podglądu kamery */
-    #cameraFeed {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      display: none;
-      z-index: 1;
-      background: transparent;
-    }
-  </style>
+<style>
+ body{margin:0;overflow:hidden;font-family:system-ui}
+ #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:#000;color:#fff;font-size:18px;z-index:9;text-align:center}
+ #hud-logo{
+   position:fixed;top:8px;left:8px;width:64px;height:auto;
+   background:#ffffffb0;border:2px solid #fff;border-radius:8px;
+   z-index:10000;pointer-events:none}
+ a-scene{width:100vw;height:100vh}
+</style>
 </head>
 <body>
 
-  <!-- stałe logo -->
-  <img id="hud-logo" src="assets/WIZJA.png" alt="logo">
+<img id="hud-logo" src="assets/WIZJA.png" alt="logo">
+<div id="msg">🔍 Ładowanie…</div>
 
-  <!-- komunikat startowy -->
-  <div id="msg">🔍 Ładowanie…</div>
+<!--  filterBeta = 0.5 wygładza drobne drgania  -->
+<a-scene id="scene" embedded
+         mindar-image="imageTargetSrc:targets.mind;autoStart:true;filterBeta:0.5;"
+         vr-mode-ui="enabled:false"
+         device-orientation-permission-ui="enabled:true">
 
-  <!-- scena WebAR -->
-  <a-scene id="scene" embedded
-           background="color: transparent"
-           mindar-image="imageTargetSrc: targets.mind; autoStart: true; filterBeta: 0.85; filterMinCF: 0.00005"
-           vr-mode-ui="enabled: false"
-           device-orientation-permission-ui="enabled: true">
+  <a-assets>
+    <img id="tex-dom"    src="assets/S1DOM_X.png">
+    <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
+  </a-assets>
 
-    <a-assets>
-      <!-- tylko nakładki, bez markerów -->
-      <img id="tex-dom"    src="assets/S1DOM_X.png">
-      <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
-    </a-assets>
+  <a-camera look-controls="enabled:false"></a-camera>
 
-    <a-camera look-controls="enabled: false"></a-camera>
-
-    <!-- kotwice: 0 = Namiot, 1 = Dom -->
-    <a-entity id="anchor-namiot" mindar-image-target="targetIndex: 0"></a-entity>
-    <a-entity id="anchor-dom"    mindar-image-target="targetIndex: 1"></a-entity>
-  </a-scene>
-
-  <!-- surowy podgląd kamery -->
-  <video id="cameraFeed" autoplay playsinline muted></video>
+  <!-- indeksy zgodne z Visualize: 0-Namiot, 1-Dom -->
+  <a-entity id="anchor-namiot" mindar-image-target="targetIndex:0"></a-entity>
+  <a-entity id="anchor-dom"    mindar-image-target="targetIndex:1"></a-entity>
+</a-scene>
 
 <script>
 (async()=>{
-  // 1. Weryfikacja środowiska i pozwolenie na kamerę
-  const M = document.getElementById('msg');
-  try {
-    if (typeof AFRAME !== 'object')            throw '❌ A-Frame niezaładowany';
-    if (typeof MINDAR === 'undefined')         throw '❌ MindAR niezaładowany';
-    const r = await fetch('targets.mind');
-    if (!r.ok || r.headers.get('content-length') === '0') throw '❌ brak/pusty targets.mind';
-    // tylko poproś o pozwolenie na kamerę, od razu zatrzymaj strumień
-    await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => stream.getTracks().forEach(t => t.stop()));
-    M.style.display = 'none';
-  } catch(e) {
-    M.textContent = e;
-    return;
-  }
+/* --- minimalne sprawdzenie środowiska --- */
+const M=document.getElementById('msg');
+try{
+  if(typeof AFRAME!=='object')            throw'❌ A-Frame niezaładowany';
+  if(typeof MINDAR==='undefined')         throw'❌ MindAR niezaładowany';
+  const r=await fetch('targets.mind');
+  if(!r.ok||r.headers.get('content-length')==='0') throw'❌ targets.mind brak / 0 B';
+  await navigator.mediaDevices.getUserMedia({video:true})
+        .then(s=>s.getTracks().forEach(t=>t.stop()));
+  M.style.display='none';
+}catch(e){M.textContent=e;return}
+/* ---------------------------------------- */
 
-  // 2. Funkcja obliczająca aspect na podstawie nakładki
-  function computeAspect(texId) {
-    const img = document.querySelector(texId);
-    return img.naturalHeight / img.naturalWidth;
-  }
+function spawn(anchor, texId, opts={}){
+  const img=document.querySelector(texId); if(!img) return;
+  const h = img.naturalHeight / img.naturalWidth;
+  const p = document.createElement('a-plane');
+  p.setAttribute('src',texId);
+  p.setAttribute('width', opts.width  ?? '1');
+  p.setAttribute('height',opts.height ?? h );
+  p.setAttribute('position',`0 0 ${opts.z ?? 0.001}`);
+  p.setAttribute('material','shader:flat;transparent:true');
+  anchor.innerHTML=''; anchor.appendChild(p);
+}
 
-  // 3. Utwórz plane dopasowany do markera i nakładki
-  function addPlane(anchor, texId) {
-    const aspect = computeAspect(texId);
-    anchor.innerHTML = '';
-    const p = document.createElement('a-plane');
-    p.setAttribute('src', texId);
-    p.setAttribute('width', '1');
-    p.setAttribute('height', aspect.toString());
-    p.setAttribute('position', '0 0 0.005');
-    p.setAttribute('material', 'shader:flat;transparent:true');
-    anchor.appendChild(p);
-  }
+/* --- Namiot (index 0) – plane 0.95 × 0.95, odsunięty 0.005 --- */
+const aNam=document.getElementById('anchor-namiot');
+aNam.addEventListener('targetFound',()=>{
+  spawn(aNam,'#tex-namiot',{width:'0.95',height:0.95*(550/580),z:0.005});
+});
+aNam.addEventListener('targetLost', ()=>aNam.innerHTML='');
 
-  // 4. Kotwica 'Namiot' - index 0
-  const aNam = document.getElementById('anchor-namiot');
-  aNam.addEventListener('targetFound', () => {
-    addPlane(aNam, '#tex-namiot');
-  });
-  aNam.addEventListener('targetLost', () => aNam.innerHTML = '');
-
-  // 5. Kotwica 'Dom' - index 1
-  const aDom = document.getElementById('anchor-dom');
-  aDom.addEventListener('targetFound', () => {
-    addPlane(aDom, '#tex-dom');
-  });
-  aDom.addEventListener('targetLost', () => aDom.innerHTML = '');
-
-  // 6. Funkcja uruchamiająca czysty podgląd kamery
-  async function startCameraFeed() {
-    const videoEl = document.getElementById('cameraFeed');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false
-      });
-      videoEl.srcObject = stream;
-      videoEl.style.display = 'block';
-    } catch(err) {
-      console.error('Błąd uruchamiania kamery:', err);
-    }
-  }
-
-  // 7. Po stuknięciu wyłącz AR i pokaż tylko podgląd kamery
-  window.addEventListener('pointerdown', () => {
-    // zatrzymaj silnik MindAR
-    const sys = document.getElementById('scene').systems['mindar-image-system'];
-    if (sys) sys.stop();
-
-    // wyłącz inne <video> poza #cameraFeed
-    document.querySelectorAll('video').forEach(v => {
-      if (v.id !== 'cameraFeed') {
-        v.srcObject?.getTracks().forEach(t => t.stop());
-        v.remove();
-      }
-    });
-
-    // ukryj scenę AR i logo
-    document.getElementById('scene').style.display = 'none';
-    document.getElementById('hud-logo').style.display = 'none';
-
-    // włącz podgląd kamery
-    startCameraFeed();
-  }, { once: true });
+/* --- Dom (index 1) – pełne 1×AR, minimalne odsunięcie 0.001 --- */
+const aDom=document.getElementById('anchor-dom');
+aDom.addEventListener('targetFound',()=>{
+  spawn(aDom,'#tex-dom',{z:0.001});
+});
+aDom.addEventListener('targetLost', ()=>aDom.innerHTML='');
 })();
 </script>
 </body>
