@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-  <title>WebAR – Sprzedawca animacja</title>
+  <title>WebAR – Sprzedawca animacja (MP4)</title>
   <script src="libs/aframe-v1.2.0.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
@@ -14,26 +14,22 @@
          border-radius:8px;pointer-events:none;z-index:20}
     #loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
             background:#000c;color:#fff;font-size:18px;z-index:15}
-    /* animacja GIF nad kamerą, wyśrodkowana */
-    #anim-gif{
-      display:none;
-      position:fixed;
-      left:50%;top:50%;transform:translate(-50%,-50%);
-      width:50vw;max-width:350px;z-index:1000;pointer-events:none;
-    }
   </style>
 </head>
 <body>
 <img id="hud" src="assets/CZAS.png" alt="CZAS">
 <div id="loader">🔍 Ładowanie kamery…</div>
-<img id="anim-gif" src="assets/SPRZEDAWCAX.gif" alt="animacja">
 
 <a-scene
   embedded
   mindar-image="imageTargetSrc:targets.mind;autoStart:true;filterBeta:0.95;filterMinCF:0.00001"
   vr-mode-ui="enabled:false"
   device-orientation-permission-ui="enabled:true">
-  <a-assets></a-assets>
+  <a-assets>
+    <video id="sprzedawca-mp4" src="assets/SPRZEDAWCAX.mp4"
+      loop="true" preload="auto" crossorigin="anonymous"
+      playsinline webkit-playsinline></video>
+  </a-assets>
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
   <a-entity id="anchor-sprzedawca" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
@@ -41,10 +37,41 @@
 <script>
 document.querySelector('a-scene').addEventListener('renderstart',()=>loader.remove());
 
-const anchor=document.getElementById('anchor-sprzedawca');
-const gif = document.getElementById('anim-gif');
-anchor.addEventListener('targetFound', ()=>{ gif.style.display='block'; });
-anchor.addEventListener('targetLost',  ()=>{ gif.style.display='none'; });
+const anchor = document.getElementById('anchor-sprzedawca');
+const video = document.getElementById('sprzedawca-mp4');
+
+// Wylicz aspect ratio automatycznie po załadowaniu metadanych
+let videoHeight = 0.5625; // domyślnie 16:9
+video.addEventListener('loadedmetadata', () => {
+  videoHeight = video.videoHeight / video.videoWidth;
+});
+
+function createVideoPlane() {
+  const v = document.createElement('a-video');
+  v.setAttribute('src', '#sprzedawca-mp4');
+  v.setAttribute('width', '1');
+  v.setAttribute('height', videoHeight.toString());
+  v.setAttribute('position', '0 0 0.005');
+  v.setAttribute('autoplay', 'true');
+  v.setAttribute('loop', 'true');
+  v.setAttribute('playsinline', 'true');
+  v.setAttribute('webkit-playsinline', 'true');
+  v.setAttribute('crossorigin', 'anonymous');
+  v.setAttribute('preload', 'auto');
+  return v;
+}
+
+anchor.addEventListener('targetFound', ()=>{
+  anchor.innerHTML = '';
+  anchor.appendChild(createVideoPlane());
+  video.currentTime = 0;
+  video.play();
+});
+anchor.addEventListener('targetLost', ()=>{
+  anchor.innerHTML = '';
+  video.pause();
+  video.currentTime = 0;
+});
 </script>
 </body>
 </html>
