@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <title>WebAR – idealne dopasowanie nakładek</title>
+  <title>WebAR – idealne dopasowanie nakładek non‐square</title>
 
   <!-- lokalne biblioteki -->
   <script src="libs/aframe-v1.2.0.min.js"></script>
@@ -18,7 +18,7 @@
       height: 100%;
       background: transparent;
     }
-    /* komunikat startowy (ukryje się po inicjalizacji) */
+    /* komunikat startowy (zniknie po inicjalizacji) */
     #msg {
       position: fixed;
       inset: 0;
@@ -83,8 +83,11 @@
            device-orientation-permission-ui="enabled: true">
 
     <a-assets>
-      <!-- Zakładamy, że markery S1NAMIOT.jpg i S1DOM.jpg są kwadratowe (np. 750×750 px) -->
-      <!-- Nakładki S1NAMIOT_X.png i S1DOM_X.png muszą być przycięte do dokładnie tych samych proporcji i rozmiarów (bez dodatkowych marginesów). -->
+      <!-- Oryginalne pliki markerów, potrzebne do obliczenia AR -->
+      <img id="marker-dom"    src="assets/S1DOM.jpg"    style="display:none;">
+      <img id="marker-namiot" src="assets/S1NAMIOT.jpg" style="display:none;">
+
+      <!-- Nakładki: muszą mieć ten sam „bound” co markery (bez marginesów) -->
       <img id="tex-dom"    src="assets/S1DOM_X.png">
       <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
     </a-assets>
@@ -117,37 +120,46 @@
     return;
   }
 
-  // 2. Pomocnicza funkcja dodająca plane idealnie 1×1 (marker jest kwadratowy)
-  function addPlane(anchor, texId) {
-    const img = document.querySelector(texId);
-    if (!img) return;
-    // Zakładamy marker = kwadrat (1×1). Nakładka powinna mieć identyczny AR, więc width=1, height=1.
+  // 2. Funkcja obliczająca AR na podstawie oryginalnego pliku markera
+  function computeMarkerAspect(markerId) {
+    const img = document.getElementById(markerId);
+    if (!img || !img.naturalWidth) return 1; 
+    return img.naturalHeight / img.naturalWidth;
+  }
+
+  // 3. Pomocnicza funkcja do tworzenia płaszczyzny overlay
+  function addPlane(anchor, texId, markerId) {
+    const overlayImg = document.getElementById(texId.substring(1));
+    const markerAspect = computeMarkerAspect(markerId.substring(1));
     anchor.innerHTML = '';
     const p = document.createElement('a-plane');
     p.setAttribute('src', texId);
+    // zawsze szerokość = 1, wysokość = aspect z markera
     p.setAttribute('width', '1');
-    p.setAttribute('height', '1');
-    // Odsuń o minimalną wartość w Z, żeby nie zasłaniać punktów detekcji markera
-    p.setAttribute('position', '0 0 0.005');
+    p.setAttribute('height', markerAspect.toString());
+    // odsuń nieco w Z, by nie zasłaniać punktów detekcyjnych
+    p.setAttribute('position', `0 0 0.005`);
     p.setAttribute('material', 'shader:flat;transparent:true');
     anchor.appendChild(p);
   }
 
-  // 3. Kotwice dla Namiotu i Domu
+  // 4. Kotwica 'Namiot' (index 0)
   const aN = document.getElementById('anchor-namiot');
   aN.addEventListener('targetFound', () => {
-    // bez skalowania — zawsze 1×1
-    addPlane(aN, '#tex-namiot');
+    // tex-namiot ↔ marker-namiot
+    addPlane(aN, '#tex-namiot', '#marker-namiot');
   });
   aN.addEventListener('targetLost', () => aN.innerHTML = '');
 
+  // 5. Kotwica 'Dom' (index 1)
   const aD = document.getElementById('anchor-dom');
   aD.addEventListener('targetFound', () => {
-    addPlane(aD, '#tex-dom');
+    // tex-dom ↔ marker-dom
+    addPlane(aD, '#tex-dom', '#marker-dom');
   });
   aD.addEventListener('targetLost', () => aD.innerHTML = '');
 
-  // 4. Funkcja uruchamiająca czysty podgląd kamery
+  // 6. Funkcja uruchamiająca czysty podgląd kamery
   async function startCameraFeed() {
     const videoEl = document.getElementById('cameraFeed');
     try {
@@ -162,11 +174,10 @@
     }
   }
 
-  // 5. Po stuknięciu wyłącz AR i wyświetl tylko kamerę
+  // 7. Po stuknięciu wyłącz AR i wyświetl tylko czysty feed kamery
   window.addEventListener('pointerdown', () => {
     // zatrzymanie silnika MindAR
-    const sys = document.getElementById('scene')
-                  .systems['mindar-image-system'];
+    const sys = document.getElementById('scene').systems['mindar-image-system'];
     if (sys) sys.stop();
 
     // wyłączenie wszystkich <video> oprócz #cameraFeed
@@ -181,9 +192,10 @@
     document.getElementById('scene').style.display = 'none';
     document.getElementById('hud-logo').style.display = 'none';
 
-    // włączenie czystego podglądu kamery
+    // włączenie podglądu kamery
     startCameraFeed();
   }, { once: true });
+
 })();
 </script>
 </body>
