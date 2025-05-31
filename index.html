@@ -16,7 +16,7 @@
       overflow: hidden;
       font-family: system-ui;
       height: 100%;
-      background: #000;
+      background: transparent; /* Usuń czarne tło */
     }
     /* komunikat startowy (ukryje się po inicjalizacji) */
     #msg {
@@ -25,7 +25,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #000;
+      background: rgba(0,0,0,0.8);
       color: #fff;
       font-size: 18px;
       text-align: center;
@@ -44,10 +44,11 @@
       z-index: 10000;
       pointer-events: none;
     }
-    /* scena AR */
+    /* scena AR – upewnij się, że jest widoczna */
     a-scene {
       width: 100vw;
       height: 100vh;
+      background: transparent !important;
     }
     /* element <video> do czystego podglądu kamery */
     #cameraFeed {
@@ -59,7 +60,7 @@
       object-fit: cover;
       display: none;
       z-index: 1;
-      background: #000;
+      background: transparent;
     }
   </style>
 </head>
@@ -105,7 +106,7 @@
     if (typeof MINDAR === 'undefined') throw '❌ MindAR niezaładowany';
     const r = await fetch('targets.mind');
     if (!r.ok || r.headers.get('content-length') === '0') throw '❌ brak/pusty targets.mind';
-    // uzyskanie pozwolenia na kamerę
+    // uzyskanie pozwolenia na kamerę (część WebAR)
     await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       .then(stream => stream.getTracks().forEach(t => t.stop()));
     M.style.display = 'none';
