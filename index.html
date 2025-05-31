@@ -1,72 +1,113 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>WebAR – Dom & Namiot (uniwersalny)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>WebAR – Dom & Namiot (stabilne wykrycie)</title>
 
-<!-- biblioteki -->
-<script src="libs/aframe-v1.2.0.min.js"></script>
-<script src="libs/mindar-image.prod.js"></script>
-<script src="libs/mindar-image-aframe.prod.js"></script>
+  <!-- A-Frame i MindAR -->
+  <script src="libs/aframe-v1.2.0.min.js"></script>
+  <script src="libs/mindar-image.prod.js"></script>
+  <script src="libs/mindar-image-aframe.prod.js"></script>
 
-<style>
- html,body{margin:0;height:100%;overflow:hidden;font-family:System-ui}
- a-scene{width:100vw;height:100vh;background:transparent!important}
- #hud{position:fixed;top:8px;left:8px;width:64px;pointer-events:none;
-       border-radius:8px;border:2px solid #fff;background:#fff8;z-index:20}
- #loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-         background:#000c;color:#fff;font-size:18px;z-index:15}
-</style>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, Arial, sans-serif;
+      background: transparent;
+    }
+    #hud {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      width: 64px;
+      background: rgba(255, 255, 255, 0.8);
+      border: 2px solid #fff;
+      border-radius: 8px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      font-size: 18px;
+      text-align: center;
+      z-index: 15;
+    }
+    a-scene {
+      width: 100vw;
+      height: 100vh;
+      background: transparent !important;
+    }
+  </style>
 </head>
 <body>
 
-<img id="hud" src="assets/WIZJA.png" alt="logo">
-<div id="loader">▣ Ładowanie kamery…</div>
+  <img id="hud" src="assets/WIZJA.png" alt="logo WIZJA">
+  <div id="loader">🔍 Ładowanie kamery…</div>
 
-<a-scene
-  embedded
-  mindar-image="imageTargetSrc:targets.mind;autoStart:true;"
-  device-orientation-permission-ui="enabled:true"
-  vr-mode-ui="enabled:false">
+  <a-scene
+    embedded
+    mindar-image="imageTargetSrc:targets.mind;autoStart:true;filterBeta:0.8;filterMinCF:0.00005"
+    vr-mode-ui="enabled:false"
+    device-orientation-permission-ui="enabled:true"
+    renderer="colorManagement:true, physicallyCorrectLights:true"
+  >
 
-  <a-assets>
-    <img id="dom"    src="assets/S1DOM_X.png">
-    <img id="namiot" src="assets/S1NAMIOT_X.png">
-  </a-assets>
+    <a-assets>
+      <img id="tex-dom"    src="assets/S1DOM_X.png">
+      <img id="tex-namiot" src="assets/S1NAMIOT_X.png">
+    </a-assets>
 
-  <!-- ważne dla iOS → komponent mindar-image-camera  -->
-  <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
+    <!-- WYMAGANE dla iOS! -->
+    <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
 
-  <a-entity id="anchor-dom"    mindar-image-target="targetIndex:1"></a-entity>
-  <a-entity id="anchor-namiot" mindar-image-target="targetIndex:0"></a-entity>
-</a-scene>
+    <!-- 0 = Namiot, 1 = Dom -->
+    <a-entity id="anchor-namiot" mindar-image-target="targetIndex:0"></a-entity>
+    <a-entity id="anchor-dom"    mindar-image-target="targetIndex:1"></a-entity>
+  </a-scene>
 
 <script>
-/* po wyrenderowaniu sceny chowamy loader */
+// Loader znika, gdy WebGL gotowy
 document.querySelector('a-scene').addEventListener('renderstart',()=>loader.remove());
 
-/* helper – tworzy plane 1×AR, odsuwa 5 mm */
-function makePlane(tex){
-  const p=document.createElement('a-plane');
-  p.setAttribute('src',tex);
-  const img=document.querySelector(tex);
+function makePlane(texSel){
+  const img=document.querySelector(texSel);
+  if(!img) return null;
+  const ar = img.naturalHeight / img.naturalWidth;
+  const p  = document.createElement('a-plane');
+  p.setAttribute('src',texSel);
   p.setAttribute('width','1');
-  p.setAttribute('height',img.naturalHeight/img.naturalWidth);
+  p.setAttribute('height',ar.toString());
   p.setAttribute('position','0 0 0.005');
   p.setAttribute('material','shader:flat;transparent:true');
   return p;
 }
 
-/* DOM (index 1) */
-const aDom=document.getElementById('anchor-dom');
-aDom.addEventListener('targetFound',()=>{ aDom.innerHTML=''; aDom.appendChild(makePlane('#dom')); });
-aDom.addEventListener('targetLost', ()=> aDom.innerHTML='');
+// NAMIOT (index 0)
+const an=document.getElementById('anchor-namiot');
+an.addEventListener('targetFound',()=>{
+  an.innerHTML='';
+  const pl = makePlane('#tex-namiot');
+  if(pl) an.appendChild(pl);
+});
+an.addEventListener('targetLost', ()=>an.innerHTML='');
 
-/* Namiot (index 0) */
-const aNam=document.getElementById('anchor-namiot');
-aNam.addEventListener('targetFound',()=>{ aNam.innerHTML=''; aNam.appendChild(makePlane('#namiot')); });
-aNam.addEventListener('targetLost', ()=> aNam.innerHTML='');
+// DOM (index 1)
+const ad=document.getElementById('anchor-dom');
+ad.addEventListener('targetFound', ()=>{
+  ad.innerHTML='';
+  const pl = makePlane('#tex-dom');
+  if(pl) ad.appendChild(pl);
+});
+ad.addEventListener('targetLost',  ()=>ad.innerHTML='');
 </script>
 </body>
 </html>
