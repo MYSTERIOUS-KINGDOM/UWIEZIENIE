@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-  <title>WebAR – Sprzedawca animacja (MP4)</title>
+  <title>WebAR – Czas (PNG)</title>
   <script src="libs/aframe-v1.2.0.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
@@ -26,51 +26,34 @@
   vr-mode-ui="enabled:false"
   device-orientation-permission-ui="enabled:true">
   <a-assets>
-    <video id="sprzedawca-mp4" src="assets/SPRZEDAWCAX.mp4"
-      loop="true" preload="auto" crossorigin="anonymous"
-      playsinline webkit-playsinline></video>
+    <img id="tex-czas" src="assets/S1CZAS_X.png">
   </a-assets>
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
-  <a-entity id="anchor-sprzedawca" mindar-image-target="targetIndex:0"></a-entity>
+  <a-entity id="anchor-czas" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
 document.querySelector('a-scene').addEventListener('renderstart',()=>loader.remove());
 
-const anchor = document.getElementById('anchor-sprzedawca');
-const video = document.getElementById('sprzedawca-mp4');
-
-// Wylicz aspect ratio automatycznie po załadowaniu metadanych
-let videoHeight = 0.5625; // domyślnie 16:9
-video.addEventListener('loadedmetadata', () => {
-  videoHeight = video.videoHeight / video.videoWidth;
-});
-
-function createVideoPlane() {
-  const v = document.createElement('a-video');
-  v.setAttribute('src', '#sprzedawca-mp4');
-  v.setAttribute('width', '1');
-  v.setAttribute('height', videoHeight.toString());
-  v.setAttribute('position', '0 0 0.005');
-  v.setAttribute('autoplay', 'true');
-  v.setAttribute('loop', 'true');
-  v.setAttribute('playsinline', 'true');
-  v.setAttribute('webkit-playsinline', 'true');
-  v.setAttribute('crossorigin', 'anonymous');
-  v.setAttribute('preload', 'auto');
-  return v;
+function makePlane(texSel){
+  const img=document.querySelector(texSel);
+  const ar = img.naturalHeight / img.naturalWidth;
+  const p  = document.createElement('a-plane');
+  p.setAttribute('src', texSel);
+  p.setAttribute('width', '1');
+  p.setAttribute('height', ar.toString());
+  p.setAttribute('position', '0 0 0.005');
+  p.setAttribute('material','shader:flat;transparent:true');
+  return p;
 }
 
+const anchor = document.getElementById('anchor-czas');
 anchor.addEventListener('targetFound', ()=>{
   anchor.innerHTML = '';
-  anchor.appendChild(createVideoPlane());
-  video.currentTime = 0;
-  video.play();
+  anchor.appendChild(makePlane('#tex-czas'));
 });
 anchor.addEventListener('targetLost', ()=>{
   anchor.innerHTML = '';
-  video.pause();
-  video.currentTime = 0;
 });
 </script>
 </body>
