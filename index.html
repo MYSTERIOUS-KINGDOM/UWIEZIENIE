@@ -42,7 +42,7 @@ function makePlane(texSel){
   p.setAttribute('src', texSel);
   p.setAttribute('width', '1');
   p.setAttribute('height', ar.toString());
-  p.setAttribute('position', '0 0 0.005');
+  p.setAttribute('position', '0 0.05 0.005'); // przesunięcie w górę
   p.setAttribute('material','shader:flat;transparent:true');
   return p;
 }
