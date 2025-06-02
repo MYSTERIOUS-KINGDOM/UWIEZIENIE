@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-  <title>WebAR – Czas (PNG)</title>
+  <title>WebAR – PRAWDA (PNG)</title>
   <script src="libs/aframe-v1.2.0.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
@@ -17,7 +17,7 @@
   </style>
 </head>
 <body>
-<img id="hud" src="assets/CZAS.png" alt="CZAS">
+<img id="hud" src="assets/PRAWDA.png" alt="PRAWDA">
 <div id="loader">🔍 Ładowanie kamery…</div>
 
 <a-scene
@@ -26,10 +26,10 @@
   vr-mode-ui="enabled:false"
   device-orientation-permission-ui="enabled:true">
   <a-assets>
-    <img id="tex-czas" src="assets/S1CZAS_X.png">
+    <img id="tex-prawda" src="assets/S2TRUEPIGS.png">
   </a-assets>
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
-  <a-entity id="anchor-czas" mindar-image-target="targetIndex:0"></a-entity>
+  <a-entity id="anchor-prawda" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
@@ -47,10 +47,10 @@ function makePlane(texSel){
   return p;
 }
 
-const anchor = document.getElementById('anchor-czas');
+const anchor = document.getElementById('anchor-prawda');
 anchor.addEventListener('targetFound', ()=>{
   anchor.innerHTML = '';
-  anchor.appendChild(makePlane('#tex-czas'));
+  anchor.appendChild(makePlane('#tex-prawda'));
 });
 anchor.addEventListener('targetLost', ()=>{
   anchor.innerHTML = '';
