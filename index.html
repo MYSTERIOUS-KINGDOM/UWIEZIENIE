@@ -19,8 +19,8 @@
   </style>
 </head>
 <body>
-<!-- nowa ikonka -->
-<img id="hud" src="assets/Klodka.png" alt="KŁODKA">
+<!-- ikonka: kraty -->
+<img id="hud" src="assets/kraty.png" alt="KRATY">
 <div id="loader">🔍 Ładowanie kamery…</div>
 
 <a-scene
@@ -30,8 +30,8 @@
   device-orientation-permission-ui="enabled:true">
 
   <a-assets>
-    <!-- nowy nakładany obrazek -->
-    <img id="tex-odcz" src="assets/Odczarowanie1.png">
+    <!-- nakładany obrazek: więzień -->
+    <img id="tex-wiez" src="assets/wiezien1.png">
   </a-assets>
 
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
@@ -57,7 +57,7 @@ function makePlane(sel){
 const anchor = document.getElementById('anchor-prawda');
 anchor.addEventListener('targetFound', ()=>{
   anchor.innerHTML = '';
-  anchor.appendChild(makePlane('#tex-odcz'));
+  anchor.appendChild(makePlane('#tex-wiez'));
 });
 anchor.addEventListener('targetLost', ()=>{ anchor.innerHTML = ''; });
 </script>
