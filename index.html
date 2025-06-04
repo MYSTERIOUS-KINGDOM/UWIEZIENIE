@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-<!-- ikonka: kraty -->
+<!-- ikonka -->
 <img id="hud" src="assets/kraty.png" alt="KRATY">
 <div id="loader">🔍 Ładowanie kamery…</div>
 
@@ -30,36 +30,48 @@
   device-orientation-permission-ui="enabled:true">
 
   <a-assets>
-    <!-- nakładany obrazek: więzień -->
     <img id="tex-wiez" src="assets/wiezien1.png">
   </a-assets>
 
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
-  <a-entity id="anchor-prawda" mindar-image-target="targetIndex:0"></a-entity>
+  <a-entity id="anchor-wiez" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
-/* ukryj loader po starcie renderu */
-document.querySelector('a-scene').addEventListener('renderstart',()=>loader.remove());
+/* 1. loader znika, gdy MindAR faktycznie gotów */
+document.querySelector('a-scene').addEventListener('arReady', ()=>loader.remove());
 
-function makePlane(sel){
-  const img=document.querySelector(sel);
-  const ar = img.naturalHeight / img.naturalWidth;
-  const p  = document.createElement('a-plane');
-  p.setAttribute('src', sel);
-  p.setAttribute('width', '1');
+/* 2. cache jednej płaszczyzny, żeby nie tworzyć nowych elementów */
+let cachedPlane = null;
+function getPlane() {
+  if (cachedPlane) return cachedPlane;
+
+  const img = document.querySelector('#tex-wiez');
+  const ar  = img.naturalHeight / img.naturalWidth;
+
+  const p   = document.createElement('a-plane');
+  p.setAttribute('src', '#tex-wiez');
+  p.setAttribute('width',  '1');
   p.setAttribute('height', ar.toString());
-  p.setAttribute('position', '0 0.05 0.005');  /* przesunięcie w górę */
+  p.setAttribute('position','0 0.05 0.005');
   p.setAttribute('material','shader:flat;transparent:true');
+
+  cachedPlane = p;
   return p;
 }
 
-const anchor = document.getElementById('anchor-prawda');
+/* 3. helper do bezpiecznego czyszczenia zawartości anchorów */
+function clear(el){
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+/* 4. obsługa targetu */
+const anchor = document.getElementById('anchor-wiez');
 anchor.addEventListener('targetFound', ()=>{
-  anchor.innerHTML = '';
-  anchor.appendChild(makePlane('#tex-wiez'));
+  clear(anchor);
+  anchor.appendChild(getPlane());
 });
-anchor.addEventListener('targetLost', ()=>{ anchor.innerHTML = ''; });
+anchor.addEventListener('targetLost', ()=>clear(anchor));
 </script>
 </body>
 </html>
