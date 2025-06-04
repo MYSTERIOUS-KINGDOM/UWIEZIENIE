@@ -4,9 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <title>WebAR – PRAWDA (PNG)</title>
+
   <script src="libs/aframe-v1.2.0.min.js"></script>
   <script src="libs/mindar-image.prod.js"></script>
   <script src="libs/mindar-image-aframe.prod.js"></script>
+
   <style>
     html,body{margin:0;height:100%;overflow:hidden;background:transparent;font-family:System-ui}
     a-scene{width:100vw;height:100vh;background:transparent!important}
@@ -17,7 +19,8 @@
   </style>
 </head>
 <body>
-<img id="hud" src="assets/PRAWDA.png" alt="PRAWDA">
+<!-- nowa ikonka -->
+<img id="hud" src="assets/Klodka.png" alt="KŁODKA">
 <div id="loader">🔍 Ładowanie kamery…</div>
 
 <a-scene
@@ -25,24 +28,28 @@
   mindar-image="imageTargetSrc:targets.mind;autoStart:true;filterBeta:0.95;filterMinCF:0.00001"
   vr-mode-ui="enabled:false"
   device-orientation-permission-ui="enabled:true">
+
   <a-assets>
-    <img id="tex-prawda" src="assets/S2TRUEPIGS.png">
+    <!-- nowy nakładany obrazek -->
+    <img id="tex-odcz" src="assets/Odczarowanie1.png">
   </a-assets>
+
   <a-camera mindar-image-camera look-controls="enabled:false"></a-camera>
   <a-entity id="anchor-prawda" mindar-image-target="targetIndex:0"></a-entity>
 </a-scene>
 
 <script>
+/* ukryj loader po starcie renderu */
 document.querySelector('a-scene').addEventListener('renderstart',()=>loader.remove());
 
-function makePlane(texSel){
-  const img=document.querySelector(texSel);
+function makePlane(sel){
+  const img=document.querySelector(sel);
   const ar = img.naturalHeight / img.naturalWidth;
   const p  = document.createElement('a-plane');
-  p.setAttribute('src', texSel);
+  p.setAttribute('src', sel);
   p.setAttribute('width', '1');
   p.setAttribute('height', ar.toString());
-  p.setAttribute('position', '0 0.05 0.005'); // przesunięcie w górę
+  p.setAttribute('position', '0 0.05 0.005');  /* przesunięcie w górę */
   p.setAttribute('material','shader:flat;transparent:true');
   return p;
 }
@@ -50,11 +57,9 @@ function makePlane(texSel){
 const anchor = document.getElementById('anchor-prawda');
 anchor.addEventListener('targetFound', ()=>{
   anchor.innerHTML = '';
-  anchor.appendChild(makePlane('#tex-prawda'));
+  anchor.appendChild(makePlane('#tex-odcz'));
 });
-anchor.addEventListener('targetLost', ()=>{
-  anchor.innerHTML = '';
-});
+anchor.addEventListener('targetLost', ()=>{ anchor.innerHTML = ''; });
 </script>
 </body>
 </html>
